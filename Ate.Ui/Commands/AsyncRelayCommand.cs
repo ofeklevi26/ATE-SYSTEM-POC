@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 namespace Ate.Ui.Commands;
@@ -34,7 +35,7 @@ public sealed class AsyncRelayCommand : ICommand
         {
             _isExecuting = true;
             RaiseCanExecuteChanged();
-            await _execute().ConfigureAwait(false);
+            await _execute();
         }
         finally
         {
@@ -45,6 +46,13 @@ public sealed class AsyncRelayCommand : ICommand
 
     public void RaiseCanExecuteChanged()
     {
-        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+        {
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        dispatcher.BeginInvoke(new Action(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty)));
     }
 }
