@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Ate.Contracts;
-using Ate.Ui.Commands;
+using GalaSoft.MvvmLight.Command;
 using Ate.Ui.Services;
 
 namespace Ate.Ui.ViewModels;
@@ -32,11 +32,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ParameterInputs = new ObservableCollection<ParameterInputViewModel>();
         RebuildParameterInputs();
 
-        SendCommand = new AsyncRelayCommand(SendAsync);
-        PauseCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.PauseAsync, "Pause"));
-        ResumeCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.ResumeAsync, "Resume"));
-        ClearCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.ClearAsync, "Clear"));
-        AbortCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.AbortCurrentAsync, "Abort"));
+        SendCommand = new RelayCommand(async () => await SendAsync());
+        PauseCommand = new RelayCommand(async () => await ExecuteControlAsync(_client.PauseAsync, "Pause"));
+        ResumeCommand = new RelayCommand(async () => await ExecuteControlAsync(_client.ResumeAsync, "Resume"));
+        ClearCommand = new RelayCommand(async () => await ExecuteControlAsync(_client.ClearAsync, "Clear"));
+        AbortCommand = new RelayCommand(async () => await ExecuteControlAsync(_client.AbortCurrentAsync, "Abort"));
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += async (_, __) => await RefreshStatusAsync();
