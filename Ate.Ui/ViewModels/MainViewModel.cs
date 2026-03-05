@@ -198,10 +198,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         new ParameterDefinition("voltage", ParameterType.Decimal, "5.0"),
                         new ParameterDefinition("currentLimit", ParameterType.Decimal, "1.0")
                     }),
+                    new OperationDefinition("SetCurrentLimit", new[]
+                    {
+                        new ParameterDefinition("currentLimit", ParameterType.Decimal, "1.0")
+                    }),
+                    new OperationDefinition("SetOutput", new[]
+                    {
+                        new ParameterDefinition("enabled", ParameterType.Boolean, "true")
+                    }),
                     new OperationDefinition("OutputOn", new[]
                     {
                         new ParameterDefinition("state", ParameterType.Boolean, "true")
-                    })
+                    }),
+                    new OperationDefinition("OutputOff", System.Array.Empty<ParameterDefinition>()),
+                    new OperationDefinition("Identify", System.Array.Empty<ParameterDefinition>())
                 })
         };
     }
