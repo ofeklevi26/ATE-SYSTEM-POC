@@ -48,6 +48,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _selectedDevice;
         set
         {
+            if (value == null)
+            {
+                return;
+            }
+
             if (SetField(ref _selectedDevice, value))
             {
                 RebuildOperations();
@@ -61,6 +66,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _selectedOperation;
         set
         {
+            if (value == null)
+            {
+                return;
+            }
+
             if (SetField(ref _selectedOperation, value))
             {
                 RebuildParameterInputs();
@@ -78,6 +88,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         try
         {
+            if (SelectedDevice == null || SelectedOperation == null)
+            {
+                StatusText = "Please select a device and operation.";
+                return;
+            }
+
             var request = new DeviceCommandRequest
             {
                 DeviceType = SelectedDevice.DeviceType,
@@ -131,13 +147,29 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Operations.Add(op);
         }
 
-        SelectedOperation = Operations.First();
+        var firstOperation = Operations.FirstOrDefault();
+        if (firstOperation != null)
+        {
+            SelectedOperation = firstOperation;
+            return;
+        }
+
+        ParameterInputs.Clear();
+        OnPropertyChanged(nameof(ParameterInputs));
     }
 
     private void RebuildParameterInputs()
     {
         ParameterInputs.Clear();
-        foreach (var parameter in SelectedOperation.Parameters)
+
+        var operation = SelectedOperation;
+        if (operation == null)
+        {
+            OnPropertyChanged(nameof(ParameterInputs));
+            return;
+        }
+
+        foreach (var parameter in operation.Parameters)
         {
             ParameterInputs.Add(new ParameterInputViewModel(parameter));
         }
