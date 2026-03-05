@@ -6,8 +6,10 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using System.Windows.Threading;
 using Ate.Contracts;
+using Ate.Ui.Commands;
 using Ate.Ui.Services;
 
 namespace Ate.Ui.ViewModels;
@@ -30,6 +32,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ParameterInputs = new ObservableCollection<ParameterInputViewModel>();
         RebuildParameterInputs();
 
+        SendCommand = new AsyncRelayCommand(SendAsync);
+        PauseCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.PauseAsync, "Pause"));
+        ResumeCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.ResumeAsync, "Resume"));
+        ClearCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.ClearAsync, "Clear"));
+        AbortCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.AbortCurrentAsync, "Abort"));
+
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += async (_, __) => await RefreshStatusAsync();
         _timer.Start();
@@ -42,6 +50,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<OperationDefinition> Operations { get; }
 
     public ObservableCollection<ParameterInputViewModel> ParameterInputs { get; }
+
+    public ICommand SendCommand { get; }
+
+    public ICommand PauseCommand { get; }
+
+    public ICommand ResumeCommand { get; }
+
+    public ICommand ClearCommand { get; }
+
+    public ICommand AbortCommand { get; }
 
     public DeviceDefinition SelectedDevice
     {
@@ -111,14 +129,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    public Task PauseAsync() => _client.PauseAsync();
-
-    public Task ResumeAsync() => _client.ResumeAsync();
-
-    public Task ClearAsync() => _client.ClearAsync();
-
-    public Task AbortAsync() => _client.AbortCurrentAsync();
-
     public async Task RefreshStatusAsync()
     {
         try
@@ -136,6 +146,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         catch
         {
             StatusText = "Engine unreachable.";
+        }
+    }
+
+    private async Task ExecuteControlAsync(Func<Task> action, string actionName)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"{actionName} failed: {ex.Message}";
         }
     }
 

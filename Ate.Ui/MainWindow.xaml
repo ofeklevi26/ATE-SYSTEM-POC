@@ -48,11 +48,11 @@
         </Border>
 
         <WrapPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8">
-            <Button Width="90" Margin="0,0,8,0" Content="Send" Click="OnSendClick"/>
-            <Button Width="90" Margin="0,0,8,0" Content="Pause" Click="OnPauseClick"/>
-            <Button Width="90" Margin="0,0,8,0" Content="Resume" Click="OnResumeClick"/>
-            <Button Width="90" Margin="0,0,8,0" Content="Clear" Click="OnClearClick"/>
-            <Button Width="120" Content="Abort Current" Click="OnAbortClick"/>
+            <Button Width="90" Margin="0,0,8,0" Content="Send" Command="{Binding SendCommand}"/>
+            <Button Width="90" Margin="0,0,8,0" Content="Pause" Command="{Binding PauseCommand}"/>
+            <Button Width="90" Margin="0,0,8,0" Content="Resume" Command="{Binding ResumeCommand}"/>
+            <Button Width="90" Margin="0,0,8,0" Content="Clear" Command="{Binding ClearCommand}"/>
+            <Button Width="120" Content="Abort Current" Command="{Binding AbortCommand}"/>
         </WrapPanel>
 
         <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Vertical">
