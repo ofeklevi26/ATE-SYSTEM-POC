@@ -10,6 +10,8 @@ public sealed class PsuDemoDriver : IDeviceDriver
 {
     public string DeviceType => "PSU";
 
+    public string DriverId => "default";
+
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();

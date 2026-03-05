@@ -11,6 +11,8 @@ public sealed class DmmDemoDriver : IDeviceDriver
 {
     public string DeviceType => "DMM";
 
+    public string DriverId => "default";
+
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();

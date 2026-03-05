@@ -2,6 +2,7 @@ using System;
 using System.Web.Http;
 using Ate.Contracts;
 using Ate.Engine.Commands;
+using Ate.Engine.Serialization;
 
 namespace Ate.Engine.Controllers;
 
@@ -22,8 +23,9 @@ public sealed class CommandController : ApiController
             id,
             request.ClientRequestId,
             request.DeviceType,
+            request.DriverId,
             request.Operation,
-            request.Parameters ?? new System.Collections.Generic.Dictionary<string, object>(),
+            ParameterValueNormalizer.Normalize(request.Parameters),
             EngineHostContext.DriverRegistry,
             EngineHostContext.Logger);
 

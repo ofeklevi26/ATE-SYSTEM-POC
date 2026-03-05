@@ -8,5 +8,7 @@ public interface IDeviceDriver
 {
     string DeviceType { get; }
 
+    string DriverId { get; }
+
     Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token);
 }

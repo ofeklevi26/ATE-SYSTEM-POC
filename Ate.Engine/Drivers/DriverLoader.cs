@@ -55,8 +55,8 @@ public sealed class DriverLoader
         try
         {
             var sample = (IDeviceDriver)Activator.CreateInstance(type)!;
-            _registry.Register(sample.DeviceType, () => (IDeviceDriver)Activator.CreateInstance(type)!);
-            _logger.Info($"Registered driver '{type.FullName}' for device '{sample.DeviceType}'.");
+            _registry.Register(sample.DeviceType, sample.DriverId, () => (IDeviceDriver)Activator.CreateInstance(type)!);
+            _logger.Info($"Registered driver '{type.FullName}' for device '{sample.DeviceType}' with id '{sample.DriverId}'.");
         }
         catch (Exception ex)
         {

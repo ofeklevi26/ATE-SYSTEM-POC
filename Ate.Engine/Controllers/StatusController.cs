@@ -17,7 +17,7 @@ public sealed class StatusController : ApiController
             QueueLength = invoker.QueueLength,
             CurrentCommand = invoker.CurrentCommand,
             LastError = invoker.LastError,
-            LoadedDrivers = new System.Collections.Generic.List<string>(EngineHostContext.DriverRegistry.GetLoadedDeviceTypes())
+            LoadedDrivers = new System.Collections.Generic.List<string>(EngineHostContext.DriverRegistry.GetLoadedDrivers())
         };
 
         return Ok(status);
