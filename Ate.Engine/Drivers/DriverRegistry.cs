@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Ate.Contracts;
 
 namespace Ate.Engine.Drivers;
 
@@ -47,6 +48,16 @@ public sealed class DriverRegistry
     public IReadOnlyCollection<string> GetLoadedDrivers()
     {
         return _factories.Keys.OrderBy(x => x).ToList();
+    }
+
+    public IReadOnlyCollection<DeviceCommandDefinition> GetCommandDefinitions()
+    {
+        return _factories.Values
+            .Select(factory => factory())
+            .Select(driver => driver.GetCommandDefinition())
+            .OrderBy(d => d.DeviceType)
+            .ThenBy(d => d.DriverId)
+            .ToList();
     }
 
     private static string BuildKey(string deviceType, string driverId)

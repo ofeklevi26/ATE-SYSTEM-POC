@@ -8,8 +8,8 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using Ate.Contracts;
-using CommunityToolkit.Mvvm.Input;
 using Ate.Ui.Services;
+using CommunityToolkit.Mvvm.Input;
 
 namespace Ate.Ui.ViewModels;
 
@@ -18,18 +18,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly AteClient _client = new AteClient();
     private readonly DispatcherTimer _timer;
 
-    private DeviceDefinition _selectedDevice;
-    private OperationDefinition _selectedOperation;
+    private DeviceCommandDefinition? _selectedDevice;
+    private CommandOperationDefinition? _selectedOperation;
     private string _statusText = "Disconnected";
 
     public MainViewModel()
     {
-        Devices = new ObservableCollection<DeviceDefinition>(BuildDeviceCatalog());
-        _selectedDevice = Devices.First();
-        Operations = new ObservableCollection<OperationDefinition>(_selectedDevice.Operations);
-        _selectedOperation = Operations.First();
+        Devices = new ObservableCollection<DeviceCommandDefinition>();
+        Operations = new ObservableCollection<CommandOperationDefinition>();
         ParameterInputs = new ObservableCollection<ParameterInputViewModel>();
-        RebuildParameterInputs();
 
         SendCommand = new AsyncRelayCommand(SendAsync);
         PauseCommand = new AsyncRelayCommand(() => ExecuteControlAsync(_client.PauseAsync, "Pause"));
@@ -39,14 +36,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += async (_, __) => await RefreshStatusAsync();
-        _timer.Start();
+
+        _ = InitializeAsync();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ObservableCollection<DeviceDefinition> Devices { get; }
+    public ObservableCollection<DeviceCommandDefinition> Devices { get; }
 
-    public ObservableCollection<OperationDefinition> Operations { get; }
+    public ObservableCollection<CommandOperationDefinition> Operations { get; }
 
     public ObservableCollection<ParameterInputViewModel> ParameterInputs { get; }
 
@@ -60,38 +58,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public IAsyncRelayCommand AbortCommand { get; }
 
-    public DeviceDefinition SelectedDevice
+    public DeviceCommandDefinition? SelectedDevice
     {
         get => _selectedDevice;
         set
         {
-            if (value == null)
+            if (!SetField(ref _selectedDevice, value))
             {
                 return;
             }
 
-            if (SetField(ref _selectedDevice, value))
-            {
-                RebuildOperations();
-                RebuildParameterInputs();
-            }
+            RebuildOperations();
+            RebuildParameterInputs();
         }
     }
 
-    public OperationDefinition SelectedOperation
+    public CommandOperationDefinition? SelectedOperation
     {
         get => _selectedOperation;
         set
         {
-            if (value == null)
+            if (!SetField(ref _selectedOperation, value))
             {
                 return;
             }
 
-            if (SetField(ref _selectedOperation, value))
-            {
-                RebuildParameterInputs();
-            }
+            RebuildParameterInputs();
         }
     }
 
@@ -114,6 +106,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var request = new DeviceCommandRequest
             {
                 DeviceType = SelectedDevice.DeviceType,
+                DriverId = SelectedDevice.DriverId,
                 Operation = SelectedOperation.Name,
                 Parameters = BuildParametersDictionary(),
                 ClientRequestId = Guid.NewGuid().ToString("N")
@@ -148,6 +141,42 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task InitializeAsync()
+    {
+        await LoadCapabilitiesAsync();
+        _timer.Start();
+    }
+
+    private async Task LoadCapabilitiesAsync()
+    {
+        try
+        {
+            var capabilities = await _client.GetCapabilitiesAsync();
+            var data = (capabilities == null || capabilities.Count == 0)
+                ? BuildFallbackCatalog().ToList()
+                : capabilities;
+
+            Devices.Clear();
+            foreach (var capability in data)
+            {
+                Devices.Add(capability);
+            }
+
+            SelectedDevice = Devices.FirstOrDefault();
+        }
+        catch
+        {
+            var fallback = BuildFallbackCatalog();
+            Devices.Clear();
+            foreach (var item in fallback)
+            {
+                Devices.Add(item);
+            }
+
+            SelectedDevice = Devices.FirstOrDefault();
+        }
+    }
+
     private async Task ExecuteControlAsync(Func<Task> action, string actionName)
     {
         try
@@ -163,34 +192,31 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void RebuildOperations()
     {
         Operations.Clear();
-        foreach (var op in SelectedDevice.Operations)
+        if (SelectedDevice == null)
         {
-            Operations.Add(op);
-        }
-
-        var firstOperation = Operations.FirstOrDefault();
-        if (firstOperation != null)
-        {
-            SelectedOperation = firstOperation;
+            SelectedOperation = null;
             return;
         }
 
-        ParameterInputs.Clear();
-        OnPropertyChanged(nameof(ParameterInputs));
+        foreach (var operation in SelectedDevice.Operations)
+        {
+            Operations.Add(operation);
+        }
+
+        SelectedOperation = Operations.FirstOrDefault();
     }
 
     private void RebuildParameterInputs()
     {
         ParameterInputs.Clear();
 
-        var operation = SelectedOperation;
-        if (operation == null)
+        if (SelectedOperation == null)
         {
             OnPropertyChanged(nameof(ParameterInputs));
             return;
         }
 
-        foreach (var parameter in operation.Parameters)
+        foreach (var parameter in SelectedOperation.Parameters)
         {
             ParameterInputs.Add(new ParameterInputViewModel(parameter));
         }
@@ -204,7 +230,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         foreach (var input in ParameterInputs)
         {
-            dict[input.Key] = ConvertParameterValue(input);
+            dict[input.Name] = ConvertParameterValue(input);
         }
 
         return dict;
@@ -220,52 +246,53 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         return input.Type switch
         {
-            ParameterType.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterType.Decimal => decimal.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterType.Boolean => bool.Parse(raw),
+            ParameterValueType.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterValueType.Decimal => decimal.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterValueType.Boolean => bool.Parse(raw),
             _ => raw
         };
     }
 
-    private static IReadOnlyList<DeviceDefinition> BuildDeviceCatalog()
+    private static IReadOnlyList<DeviceCommandDefinition> BuildFallbackCatalog()
     {
-        return new[]
+        return new List<DeviceCommandDefinition>
         {
-            new DeviceDefinition(
-                "DMM",
-                new[]
+            new DeviceCommandDefinition
+            {
+                DeviceType = "DMM",
+                DriverId = "default",
+                Operations = new List<CommandOperationDefinition>
                 {
-                    new OperationDefinition("MeasureVoltage", new[]
+                    new CommandOperationDefinition
                     {
-                        new ParameterDefinition("range", ParameterType.Decimal, "10.0"),
-                        new ParameterDefinition("channel", ParameterType.Integer, "1")
-                    }),
-                    new OperationDefinition("Identify", Array.Empty<ParameterDefinition>())
-                }),
-            new DeviceDefinition(
-                "PSU",
-                new[]
+                        Name = "MeasureVoltage",
+                        Parameters = new List<CommandParameterDefinition>
+                        {
+                            new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" },
+                            new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, DefaultValue = "1" }
+                        }
+                    },
+                    new CommandOperationDefinition { Name = "Identify" }
+                }
+            },
+            new DeviceCommandDefinition
+            {
+                DeviceType = "PSU",
+                DriverId = "default",
+                Operations = new List<CommandOperationDefinition>
                 {
-                    new OperationDefinition("SetVoltage", new[]
+                    new CommandOperationDefinition
                     {
-                        new ParameterDefinition("voltage", ParameterType.Decimal, "5.0"),
-                        new ParameterDefinition("currentLimit", ParameterType.Decimal, "1.0")
-                    }),
-                    new OperationDefinition("SetCurrentLimit", new[]
-                    {
-                        new ParameterDefinition("currentLimit", ParameterType.Decimal, "1.0")
-                    }),
-                    new OperationDefinition("SetOutput", new[]
-                    {
-                        new ParameterDefinition("enabled", ParameterType.Boolean, "true")
-                    }),
-                    new OperationDefinition("OutputOn", new[]
-                    {
-                        new ParameterDefinition("state", ParameterType.Boolean, "true")
-                    }),
-                    new OperationDefinition("OutputOff", System.Array.Empty<ParameterDefinition>()),
-                    new OperationDefinition("Identify", System.Array.Empty<ParameterDefinition>())
-                })
+                        Name = "SetVoltage",
+                        Parameters = new List<CommandParameterDefinition>
+                        {
+                            new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, DefaultValue = "5.0" },
+                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
+                        }
+                    },
+                    new CommandOperationDefinition { Name = "Identify" }
+                }
+            }
         };
     }
 
@@ -287,68 +314,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 }
 
-public sealed class DeviceDefinition
-{
-    public DeviceDefinition(string deviceType, IReadOnlyList<OperationDefinition> operations)
-    {
-        DeviceType = deviceType;
-        Operations = operations;
-    }
-
-    public string DeviceType { get; }
-
-    public IReadOnlyList<OperationDefinition> Operations { get; }
-
-    public override string ToString() => DeviceType;
-}
-
-public sealed class OperationDefinition
-{
-    public OperationDefinition(string name, IReadOnlyList<ParameterDefinition> parameters)
-    {
-        Name = name;
-        Parameters = parameters;
-    }
-
-    public string Name { get; }
-
-    public IReadOnlyList<ParameterDefinition> Parameters { get; }
-
-    public override string ToString() => Name;
-}
-
-public sealed class ParameterDefinition
-{
-    public ParameterDefinition(string key, ParameterType type, string defaultValue)
-    {
-        Key = key;
-        Type = type;
-        DefaultValue = defaultValue;
-    }
-
-    public string Key { get; }
-
-    public ParameterType Type { get; }
-
-    public string DefaultValue { get; }
-}
-
 public sealed class ParameterInputViewModel : INotifyPropertyChanged
 {
     private string _valueText;
 
-    public ParameterInputViewModel(ParameterDefinition definition)
+    public ParameterInputViewModel(CommandParameterDefinition definition)
     {
-        Key = definition.Key;
+        Name = definition.Name;
         Type = definition.Type;
-        _valueText = definition.DefaultValue;
+        IsRequired = definition.IsRequired;
+        _valueText = definition.DefaultValue ?? string.Empty;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string Key { get; }
+    public string Name { get; }
 
-    public ParameterType Type { get; }
+    public ParameterValueType Type { get; }
+
+    public bool IsRequired { get; }
 
     public string ValueText
     {
@@ -364,12 +348,4 @@ public sealed class ParameterInputViewModel : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValueText)));
         }
     }
-}
-
-public enum ParameterType
-{
-    String,
-    Integer,
-    Decimal,
-    Boolean
 }

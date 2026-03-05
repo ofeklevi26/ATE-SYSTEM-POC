@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -25,6 +26,11 @@ public sealed class AteClient
     public async Task<EngineStatus?> GetStatusAsync()
     {
         return await _httpClient.GetFromJsonAsync<EngineStatus>("api/status").ConfigureAwait(false);
+    }
+
+    public async Task<List<DeviceCommandDefinition>?> GetCapabilitiesAsync()
+    {
+        return await _httpClient.GetFromJsonAsync<List<DeviceCommandDefinition>>("api/capabilities").ConfigureAwait(false);
     }
 
     public Task PauseAsync() => _httpClient.PostAsync("api/engine/pause", null);

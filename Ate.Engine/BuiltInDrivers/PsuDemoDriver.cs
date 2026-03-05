@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Ate.Contracts;
 using Ate.Engine.Drivers;
 
 namespace Ate.Engine.BuiltInDrivers;
@@ -12,6 +13,53 @@ public sealed class PsuDemoDriver : IDeviceDriver
     public string DeviceType => "PSU";
 
     public string DriverId => "default";
+
+    public DeviceCommandDefinition GetCommandDefinition()
+    {
+        return new DeviceCommandDefinition
+        {
+            DeviceType = DeviceType,
+            DriverId = DriverId,
+            Operations = new List<CommandOperationDefinition>
+            {
+                new CommandOperationDefinition
+                {
+                    Name = "SetVoltage",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
+                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
+                    }
+                },
+                new CommandOperationDefinition
+                {
+                    Name = "SetCurrentLimit",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
+                    }
+                },
+                new CommandOperationDefinition
+                {
+                    Name = "SetOutput",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
+                    }
+                },
+                new CommandOperationDefinition
+                {
+                    Name = "OutputOn",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "state", Type = ParameterValueType.Boolean, DefaultValue = "true" }
+                    }
+                },
+                new CommandOperationDefinition { Name = "OutputOff" },
+                new CommandOperationDefinition { Name = "Identify" }
+            }
+        };
+    }
 
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {

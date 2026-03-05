@@ -38,7 +38,7 @@
                                 <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding Key}"/>
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding Name}"/>
                             <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="Gray" Text="{Binding Type}"/>
                             <TextBox Grid.Column="2" Text="{Binding ValueText, UpdateSourceTrigger=PropertyChanged}"/>
                         </Grid>

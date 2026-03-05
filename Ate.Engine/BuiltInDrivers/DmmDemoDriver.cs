@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Ate.Contracts;
 using Ate.Engine.Drivers;
 
 namespace Ate.Engine.BuiltInDrivers;
@@ -12,6 +13,28 @@ public sealed class DmmDemoDriver : IDeviceDriver
     public string DeviceType => "DMM";
 
     public string DriverId => "default";
+
+    public DeviceCommandDefinition GetCommandDefinition()
+    {
+        return new DeviceCommandDefinition
+        {
+            DeviceType = DeviceType,
+            DriverId = DriverId,
+            Operations = new List<CommandOperationDefinition>
+            {
+                new CommandOperationDefinition
+                {
+                    Name = "MeasureVoltage",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" },
+                        new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, DefaultValue = "1" }
+                    }
+                },
+                new CommandOperationDefinition { Name = "Identify" }
+            }
+        };
+    }
 
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {

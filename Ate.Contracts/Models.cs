@@ -34,3 +34,42 @@ public sealed class EngineStatus
 
     public List<string> LoadedDrivers { get; set; } = new List<string>();
 }
+
+public enum ParameterValueType
+{
+    String,
+    Integer,
+    Decimal,
+    Boolean
+}
+
+public sealed class CommandParameterDefinition
+{
+    public string Name { get; set; } = string.Empty;
+
+    public ParameterValueType Type { get; set; } = ParameterValueType.String;
+
+    public bool IsRequired { get; set; }
+
+    public string? DefaultValue { get; set; }
+}
+
+public sealed class CommandOperationDefinition
+{
+    public string Name { get; set; } = string.Empty;
+
+    public List<CommandParameterDefinition> Parameters { get; set; } = new List<CommandParameterDefinition>();
+
+    public override string ToString() => Name;
+}
+
+public sealed class DeviceCommandDefinition
+{
+    public string DeviceType { get; set; } = string.Empty;
+
+    public string DriverId { get; set; } = "default";
+
+    public List<CommandOperationDefinition> Operations { get; set; } = new List<CommandOperationDefinition>();
+
+    public override string ToString() => DeviceType;
+}
