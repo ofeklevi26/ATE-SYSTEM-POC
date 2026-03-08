@@ -3,21 +3,21 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using Ate.Contracts;
-using Ate.Engine.DemoDevices;
 using Ate.Engine.Drivers;
+using Ate.Engine.Hardware;
 
-namespace Ate.Engine.BuiltInDrivers;
+namespace Ate.Engine.Wrappers;
 
-public sealed class PsuDemoDriver : IDeviceDriver
+public sealed class PsuDeviceWrapper : IDeviceDriver
 {
-    private readonly PsuDemoDevice _device = new PsuDemoDevice();
+    private readonly IPsuHardwareDriver _hardware;
 
-    public PsuDemoDriver(string driverId, string ip, int channel)
+    public PsuDeviceWrapper(string driverId, string ip, int channel, IPsuHardwareDriver hardware)
     {
         DriverId = driverId;
         Ip = ip;
         Channel = channel;
+        _hardware = hardware;
     }
 
     public string DeviceType => "PSU";
@@ -28,88 +28,45 @@ public sealed class PsuDemoDriver : IDeviceDriver
 
     public int Channel { get; }
 
-    public DeviceCommandDefinition GetCommandDefinition()
-    {
-        return new DeviceCommandDefinition
-        {
-            DeviceType = DeviceType,
-            DriverId = DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = Channel.ToString() }
-            },
-            Operations = new List<CommandOperationDefinition>
-            {
-                new CommandOperationDefinition
-                {
-                    Name = "SetVoltage",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
-                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
-                    }
-                },
-                new CommandOperationDefinition
-                {
-                    Name = "SetCurrentLimit",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
-                    }
-                },
-                new CommandOperationDefinition
-                {
-                    Name = "SetOutput",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
-                    }
-                },
-                new CommandOperationDefinition { Name = "OutputOff" },
-                new CommandOperationDefinition { Name = "Identify" }
-            }
-        };
-    }
-
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
-        _device.Connect(Ip);
+        _hardware.Connect(Ip);
         try
         {
             var channel = ReadInt(parameters, "channel", Channel);
 
             if (operation.Equals("Identify", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult<object>(_device.Identify(Ip, channel));
+                return Task.FromResult<object>(_hardware.Identify(Ip, channel));
             }
 
             if (operation.Equals("SetVoltage", StringComparison.OrdinalIgnoreCase))
             {
                 var voltage = ReadDecimal(parameters, "voltage", 5.0m);
                 var currentLimit = ReadDecimal(parameters, "currentLimit", 1.0m);
-                _device.SetVoltage(channel, voltage, currentLimit);
+                _hardware.SetVoltage(channel, voltage, currentLimit);
                 return Task.FromResult<object>($"PSU configured: Voltage={voltage.ToString("0.###", CultureInfo.InvariantCulture)}V, CurrentLimit={currentLimit.ToString("0.###", CultureInfo.InvariantCulture)}A on CH{channel}");
             }
 
             if (operation.Equals("SetCurrentLimit", StringComparison.OrdinalIgnoreCase))
             {
                 var currentLimit = ReadDecimal(parameters, "currentLimit", 1.0m);
-                _device.SetCurrentLimit(channel, currentLimit);
+                _hardware.SetCurrentLimit(channel, currentLimit);
                 return Task.FromResult<object>($"PSU current limit set to {currentLimit.ToString("0.###", CultureInfo.InvariantCulture)} A on CH{channel}");
             }
 
             if (operation.Equals("SetOutput", StringComparison.OrdinalIgnoreCase))
             {
                 var enabled = ReadBool(parameters, "enabled", true);
-                _device.SetOutput(channel, enabled);
+                _hardware.SetOutput(channel, enabled);
                 return Task.FromResult<object>(enabled ? $"PSU output enabled on CH{channel}" : $"PSU output disabled on CH{channel}");
             }
 
             if (operation.Equals("OutputOff", StringComparison.OrdinalIgnoreCase))
             {
-                _device.SetOutput(channel, false);
+                _hardware.SetOutput(channel, false);
                 return Task.FromResult<object>($"PSU output disabled on CH{channel}");
             }
 
@@ -117,7 +74,7 @@ public sealed class PsuDemoDriver : IDeviceDriver
         }
         finally
         {
-            _device.Disconnect();
+            _hardware.Disconnect();
         }
     }
 

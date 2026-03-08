@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Ate.Contracts;
-using Ate.Engine.BuiltInDrivers;
+using Ate.Engine.DemoDrivers;
+using Ate.Engine.Wrappers;
 using Ate.Engine.Commands;
 using Ate.Engine.Configuration;
 using Ate.Engine.Drivers;
@@ -52,7 +53,7 @@ public static class Program
         {
             if (cfg.DeviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase))
             {
-                var wrapper = new DmmDemoDriver(cfg.DriverId, cfg.Ip, cfg.Channel);
+                var wrapper = new DmmDeviceWrapper(cfg.DriverId, cfg.Ip, cfg.Channel, new DemoDmmHardwareDriver());
                 registry.RegisterInstance(wrapper, BuildDefinitionForDmm(cfg));
                 logger.Info($"Registered configured wrapper DMM::{cfg.DriverId} @ {cfg.Ip} CH{cfg.Channel}");
                 continue;
@@ -60,7 +61,7 @@ public static class Program
 
             if (cfg.DeviceType.Equals("PSU", StringComparison.OrdinalIgnoreCase))
             {
-                var wrapper = new PsuDemoDriver(cfg.DriverId, cfg.Ip, cfg.Channel);
+                var wrapper = new PsuDeviceWrapper(cfg.DriverId, cfg.Ip, cfg.Channel, new DemoPsuHardwareDriver());
                 registry.RegisterInstance(wrapper, BuildDefinitionForPsu(cfg));
                 logger.Info($"Registered configured wrapper PSU::{cfg.DriverId} @ {cfg.Ip} CH{cfg.Channel}");
                 continue;

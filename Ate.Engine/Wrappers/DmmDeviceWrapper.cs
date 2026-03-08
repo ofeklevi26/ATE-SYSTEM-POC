@@ -3,21 +3,21 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using Ate.Contracts;
-using Ate.Engine.DemoDevices;
 using Ate.Engine.Drivers;
+using Ate.Engine.Hardware;
 
-namespace Ate.Engine.BuiltInDrivers;
+namespace Ate.Engine.Wrappers;
 
-public sealed class DmmDemoDriver : IDeviceDriver
+public sealed class DmmDeviceWrapper : IDeviceDriver
 {
-    private readonly DmmDemoDevice _device = new DmmDemoDevice();
+    private readonly IDmmHardwareDriver _hardware;
 
-    public DmmDemoDriver(string driverId, string ip, int channel)
+    public DmmDeviceWrapper(string driverId, string ip, int channel, IDmmHardwareDriver hardware)
     {
         DriverId = driverId;
         Ip = ip;
         Channel = channel;
+        _hardware = hardware;
     }
 
     public string DeviceType => "DMM";
@@ -28,36 +28,11 @@ public sealed class DmmDemoDriver : IDeviceDriver
 
     public int Channel { get; }
 
-    public DeviceCommandDefinition GetCommandDefinition()
-    {
-        return new DeviceCommandDefinition
-        {
-            DeviceType = DeviceType,
-            DriverId = DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = Channel.ToString() }
-            },
-            Operations = new List<CommandOperationDefinition>
-            {
-                new CommandOperationDefinition
-                {
-                    Name = "MeasureVoltage",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
-                    }
-                },
-                new CommandOperationDefinition { Name = "Identify" }
-            }
-        };
-    }
-
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
-        _device.Connect(Ip);
+        _hardware.Connect(Ip);
         try
         {
             var channel = ReadInt(parameters, "channel", Channel);
@@ -65,20 +40,20 @@ public sealed class DmmDemoDriver : IDeviceDriver
             if (operation.Equals("MeasureVoltage", StringComparison.OrdinalIgnoreCase))
             {
                 var range = ReadDecimal(parameters, "range", 10.0m);
-                var value = _device.MeasureVoltage(Ip, channel, range);
+                var value = _hardware.MeasureVoltage(Ip, channel, range);
                 return Task.FromResult<object>(new { Value = value.ToString("F3", CultureInfo.InvariantCulture), Unit = "V" });
             }
 
             if (operation.Equals("Identify", StringComparison.OrdinalIgnoreCase))
             {
-                return Task.FromResult<object>(_device.Identify(Ip, channel));
+                return Task.FromResult<object>(_hardware.Identify(Ip, channel));
             }
 
             throw new InvalidOperationException($"Unsupported DMM operation '{operation}'.");
         }
         finally
         {
-            _device.Disconnect();
+            _hardware.Disconnect();
         }
     }
 
