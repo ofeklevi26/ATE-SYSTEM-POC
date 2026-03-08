@@ -1,0 +1,26 @@
+{
+  "drivers": [
+    {
+      "deviceType": "DMM",
+      "driverId": "default",
+      "wrapperProviderType": "DMM",
+      "ip": "192.168.0.10",
+      "port": 5025,
+      "channel": 1,
+      "settings": {
+        "endpointFormat": "{ip}:{port}"
+      }
+    },
+    {
+      "deviceType": "PSU",
+      "driverId": "default",
+      "wrapperProviderType": "PSU",
+      "ip": "192.168.0.20",
+      "port": 5025,
+      "channel": 1,
+      "settings": {
+        "endpointFormat": "tcp-{ip}:{port}"
+      }
+    }
+  ]
+}
