@@ -17,6 +17,11 @@ public sealed class DriverRegistry
         _factories[key] = factory;
     }
 
+    public void RegisterInstance(IDeviceDriver driver)
+    {
+        Register(driver.DeviceType, driver.DriverId, () => driver);
+    }
+
     public bool TryResolve(string deviceType, string? driverId, out IDeviceDriver? driver)
     {
         if (!string.IsNullOrWhiteSpace(driverId) &&

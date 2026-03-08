@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Ate.Engine.BuiltInDrivers;
 using Ate.Engine.Commands;
+using Ate.Engine.Configuration;
 using Ate.Engine.Drivers;
 using Ate.Engine.Infrastructure;
 using Microsoft.Owin.Hosting;
@@ -20,9 +21,12 @@ public static class Program
         EngineHostContext.DriverRegistry = registry;
         EngineHostContext.CommandInvoker = invoker;
 
-        var loader = new DriverLoader(registry, logger);
-        loader.LoadBuiltIns(typeof(DmmDemoDriver), typeof(PsuDemoDriver));
+        var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
+        var config = EngineConfiguration.Load(configPath);
 
+        RegisterConfiguredDriverWrappers(config, registry, logger);
+
+        var loader = new DriverLoader(registry, logger);
         var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
         loader.LoadFromDirectory(driversPath);
 
@@ -38,5 +42,27 @@ public static class Program
 
         logger.Info("Stopping engine...");
         invoker.StopAsync().GetAwaiter().GetResult();
+    }
+
+    private static void RegisterConfiguredDriverWrappers(EngineConfiguration config, DriverRegistry registry, ILogger logger)
+    {
+        foreach (var driver in config.Drivers)
+        {
+            if (driver.DeviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase))
+            {
+                registry.RegisterInstance(new DmmDemoDriver(driver.DriverId, driver.Ip, driver.Channel));
+                logger.Info($"Registered configured wrapper DMM::{driver.DriverId} @ {driver.Ip} CH{driver.Channel}");
+                continue;
+            }
+
+            if (driver.DeviceType.Equals("PSU", StringComparison.OrdinalIgnoreCase))
+            {
+                registry.RegisterInstance(new PsuDemoDriver(driver.DriverId, driver.Ip, driver.Channel));
+                logger.Info($"Registered configured wrapper PSU::{driver.DriverId} @ {driver.Ip} CH{driver.Channel}");
+                continue;
+            }
+
+            logger.Error($"Unsupported configured device type '{driver.DeviceType}'.");
+        }
     }
 }

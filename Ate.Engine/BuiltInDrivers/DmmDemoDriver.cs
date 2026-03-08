@@ -4,15 +4,29 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Ate.Contracts;
+using Ate.Engine.DemoDevices;
 using Ate.Engine.Drivers;
 
 namespace Ate.Engine.BuiltInDrivers;
 
 public sealed class DmmDemoDriver : IDeviceDriver
 {
+    private readonly DmmDemoDevice _device = new DmmDemoDevice();
+
+    public DmmDemoDriver(string driverId, string ip, int channel)
+    {
+        DriverId = driverId;
+        Ip = ip;
+        Channel = channel;
+    }
+
     public string DeviceType => "DMM";
 
-    public string DriverId => "default";
+    public string DriverId { get; }
+
+    public string Ip { get; }
+
+    public int Channel { get; }
 
     public DeviceCommandDefinition GetCommandDefinition()
     {
@@ -20,10 +34,6 @@ public sealed class DmmDemoDriver : IDeviceDriver
         {
             DeviceType = DeviceType,
             DriverId = DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition { Name = "ip", Type = ParameterValueType.String, IsRequired = true, DefaultValue = "192.168.0.10" }
-            },
             Operations = new List<CommandOperationDefinition>
             {
                 new CommandOperationDefinition
@@ -31,7 +41,6 @@ public sealed class DmmDemoDriver : IDeviceDriver
                     Name = "MeasureVoltage",
                     Parameters = new List<CommandParameterDefinition>
                     {
-                        new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = "1" },
                         new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
                     }
                 },
@@ -44,60 +53,27 @@ public sealed class DmmDemoDriver : IDeviceDriver
     {
         token.ThrowIfCancellationRequested();
 
-        var ip = ReadString(parameters, "ip", required: true);
-        var adapter = new DmmAdapter(ip);
-
-        if (operation.Equals("MeasureVoltage", StringComparison.OrdinalIgnoreCase))
+        _device.Connect(Ip);
+        try
         {
-            var channel = ReadInt(parameters, "channel", 1);
-            var range = ReadDecimal(parameters, "range", 10.0m);
-            var value = adapter.MeasureVoltage(channel, range);
-            return Task.FromResult<object>(new { Value = value.ToString("F3", CultureInfo.InvariantCulture), Unit = "V" });
-        }
-
-        if (operation.Equals("Identify", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult<object>(adapter.Identify());
-        }
-
-        throw new InvalidOperationException($"Unsupported DMM operation '{operation}'.");
-    }
-
-    private static string ReadString(IReadOnlyDictionary<string, object> parameters, string key, bool required)
-    {
-        if (!parameters.TryGetValue(key, out var value) || value == null || string.IsNullOrWhiteSpace(value.ToString()))
-        {
-            if (required)
+            if (operation.Equals("MeasureVoltage", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Missing required parameter '{key}'.");
+                var range = ReadDecimal(parameters, "range", 10.0m);
+                var value = _device.MeasureVoltage(Ip, Channel, range);
+                return Task.FromResult<object>(new { Value = value.ToString("F3", CultureInfo.InvariantCulture), Unit = "V" });
             }
 
-            return string.Empty;
+            if (operation.Equals("Identify", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult<object>(_device.Identify(Ip, Channel));
+            }
+
+            throw new InvalidOperationException($"Unsupported DMM operation '{operation}'.");
         }
-
-        return value.ToString()!;
-    }
-
-    private static int ReadInt(IReadOnlyDictionary<string, object> parameters, string key, int fallback)
-    {
-        if (!parameters.TryGetValue(key, out var value) || value == null)
+        finally
         {
-            return fallback;
+            _device.Disconnect();
         }
-
-        if (value is int i)
-        {
-            return i;
-        }
-
-        if (value is long l)
-        {
-            return (int)l;
-        }
-
-        return int.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : fallback;
     }
 
     private static decimal ReadDecimal(IReadOnlyDictionary<string, object> parameters, string key, decimal fallback)
@@ -120,26 +96,5 @@ public sealed class DmmDemoDriver : IDeviceDriver
         return decimal.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : fallback;
-    }
-
-    private sealed class DmmAdapter
-    {
-        private readonly string _ip;
-
-        public DmmAdapter(string ip)
-        {
-            _ip = ip;
-        }
-
-        public string Identify()
-        {
-            return $"DMM-REAL-ADAPTER@{_ip}";
-        }
-
-        public decimal MeasureVoltage(int channel, decimal range)
-        {
-            var seed = (_ip.GetHashCode() & 0x7fffffff) % 100;
-            return 3.0m + channel * 0.1m + (range > 10 ? 0.05m : 0m) + seed / 1000m;
-        }
     }
 }

@@ -271,10 +271,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 DeviceType = "DMM",
                 DriverId = "default",
-                DriverParameters = new List<CommandParameterDefinition>
-                {
-                    new CommandParameterDefinition { Name = "ip", Type = ParameterValueType.String, IsRequired = true, DefaultValue = "192.168.0.10" }
-                },
                 Operations = new List<CommandOperationDefinition>
                 {
                     new CommandOperationDefinition
@@ -282,8 +278,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         Name = "MeasureVoltage",
                         Parameters = new List<CommandParameterDefinition>
                         {
-                            new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" },
-                            new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, DefaultValue = "1" }
+                            new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
                         }
                     },
                     new CommandOperationDefinition { Name = "Identify" }
@@ -293,11 +288,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 DeviceType = "PSU",
                 DriverId = "default",
-                DriverParameters = new List<CommandParameterDefinition>
-                {
-                    new CommandParameterDefinition { Name = "ip", Type = ParameterValueType.String, IsRequired = true, DefaultValue = "192.168.0.20" },
-                    new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = "1" }
-                },
                 Operations = new List<CommandOperationDefinition>
                 {
                     new CommandOperationDefinition

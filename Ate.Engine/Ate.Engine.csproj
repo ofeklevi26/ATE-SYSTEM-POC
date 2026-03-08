@@ -17,4 +17,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Ate.Contracts\Ate.Contracts.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="engine-config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

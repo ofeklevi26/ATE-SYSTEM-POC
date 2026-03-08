@@ -1,0 +1,16 @@
+{
+  "drivers": [
+    {
+      "deviceType": "DMM",
+      "driverId": "default",
+      "ip": "192.168.0.10",
+      "channel": 1
+    },
+    {
+      "deviceType": "PSU",
+      "driverId": "default",
+      "ip": "192.168.0.20",
+      "channel": 1
+    }
+  ]
+}
