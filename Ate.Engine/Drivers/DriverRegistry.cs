@@ -8,41 +8,41 @@ namespace Ate.Engine.Drivers;
 
 public sealed class DriverRegistry
 {
-    private readonly ConcurrentDictionary<string, Func<IDeviceDriver>> _factories =
-        new ConcurrentDictionary<string, Func<IDeviceDriver>>(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DriverRegistration> _registrations =
+        new ConcurrentDictionary<string, DriverRegistration>(StringComparer.OrdinalIgnoreCase);
 
-    public void Register(string deviceType, string driverId, Func<IDeviceDriver> factory)
+    public void Register(string deviceType, string driverId, Func<IDeviceDriver> factory, DeviceCommandDefinition? definition = null)
     {
         var key = BuildKey(deviceType, driverId);
-        _factories[key] = factory;
+        _registrations[key] = new DriverRegistration(factory, definition);
     }
 
-    public void RegisterInstance(IDeviceDriver driver)
+    public void RegisterInstance(IDeviceDriver driver, DeviceCommandDefinition? definition = null)
     {
-        Register(driver.DeviceType, driver.DriverId, () => driver);
+        Register(driver.DeviceType, driver.DriverId, () => driver, definition);
     }
 
     public bool TryResolve(string deviceType, string? driverId, out IDeviceDriver? driver)
     {
         if (!string.IsNullOrWhiteSpace(driverId) &&
-            _factories.TryGetValue(BuildKey(deviceType, driverId), out var explicitFactory))
+            _registrations.TryGetValue(BuildKey(deviceType, driverId), out var explicitRegistration))
         {
-            driver = explicitFactory();
+            driver = explicitRegistration.Factory();
             return true;
         }
 
-        if (_factories.TryGetValue(BuildKey(deviceType, "default"), out var defaultFactory))
+        if (_registrations.TryGetValue(BuildKey(deviceType, "default"), out var defaultRegistration))
         {
-            driver = defaultFactory();
+            driver = defaultRegistration.Factory();
             return true;
         }
 
-        var fallback = _factories.FirstOrDefault(kvp =>
+        var fallback = _registrations.FirstOrDefault(kvp =>
             kvp.Key.StartsWith(deviceType + "::", StringComparison.OrdinalIgnoreCase));
 
         if (!string.IsNullOrWhiteSpace(fallback.Key))
         {
-            driver = fallback.Value();
+            driver = fallback.Value.Factory();
             return true;
         }
 
@@ -52,14 +52,15 @@ public sealed class DriverRegistry
 
     public IReadOnlyCollection<string> GetLoadedDrivers()
     {
-        return _factories.Keys.OrderBy(x => x).ToList();
+        return _registrations.Keys.OrderBy(x => x).ToList();
     }
 
     public IReadOnlyCollection<DeviceCommandDefinition> GetCommandDefinitions()
     {
-        return _factories.Values
-            .Select(factory => factory())
-            .Select(driver => driver.GetCommandDefinition())
+        return _registrations.Values
+            .Select(r => r.Definition)
+            .Where(d => d != null)
+            .Select(d => d!)
             .OrderBy(d => d.DeviceType)
             .ThenBy(d => d.DriverId)
             .ToList();
@@ -68,5 +69,18 @@ public sealed class DriverRegistry
     private static string BuildKey(string deviceType, string driverId)
     {
         return $"{deviceType}::{driverId}";
+    }
+
+    private sealed class DriverRegistration
+    {
+        public DriverRegistration(Func<IDeviceDriver> factory, DeviceCommandDefinition? definition)
+        {
+            Factory = factory;
+            Definition = definition;
+        }
+
+        public Func<IDeviceDriver> Factory { get; }
+
+        public DeviceCommandDefinition? Definition { get; }
     }
 }

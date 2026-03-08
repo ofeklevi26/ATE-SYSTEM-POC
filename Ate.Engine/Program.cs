@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using Ate.Contracts;
 using Ate.Engine.BuiltInDrivers;
 using Ate.Engine.Commands;
 using Ate.Engine.Configuration;
@@ -46,23 +48,87 @@ public static class Program
 
     private static void RegisterConfiguredDriverWrappers(EngineConfiguration config, DriverRegistry registry, ILogger logger)
     {
-        foreach (var driver in config.Drivers)
+        foreach (var cfg in config.Drivers)
         {
-            if (driver.DeviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase))
+            if (cfg.DeviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase))
             {
-                registry.RegisterInstance(new DmmDemoDriver(driver.DriverId, driver.Ip, driver.Channel));
-                logger.Info($"Registered configured wrapper DMM::{driver.DriverId} @ {driver.Ip} CH{driver.Channel}");
+                var wrapper = new DmmDemoDriver(cfg.DriverId, cfg.Ip, cfg.Channel);
+                registry.RegisterInstance(wrapper, BuildDefinitionForDmm(cfg));
+                logger.Info($"Registered configured wrapper DMM::{cfg.DriverId} @ {cfg.Ip} CH{cfg.Channel}");
                 continue;
             }
 
-            if (driver.DeviceType.Equals("PSU", StringComparison.OrdinalIgnoreCase))
+            if (cfg.DeviceType.Equals("PSU", StringComparison.OrdinalIgnoreCase))
             {
-                registry.RegisterInstance(new PsuDemoDriver(driver.DriverId, driver.Ip, driver.Channel));
-                logger.Info($"Registered configured wrapper PSU::{driver.DriverId} @ {driver.Ip} CH{driver.Channel}");
+                var wrapper = new PsuDemoDriver(cfg.DriverId, cfg.Ip, cfg.Channel);
+                registry.RegisterInstance(wrapper, BuildDefinitionForPsu(cfg));
+                logger.Info($"Registered configured wrapper PSU::{cfg.DriverId} @ {cfg.Ip} CH{cfg.Channel}");
                 continue;
             }
 
-            logger.Error($"Unsupported configured device type '{driver.DeviceType}'.");
+            logger.Error($"Unsupported configured device type '{cfg.DeviceType}'.");
         }
+    }
+
+    private static DeviceCommandDefinition BuildDefinitionForDmm(DriverInstanceConfiguration cfg)
+    {
+        return new DeviceCommandDefinition
+        {
+            DeviceType = cfg.DeviceType,
+            DriverId = cfg.DriverId,
+            DriverParameters = new List<CommandParameterDefinition>(),
+            Operations = new List<CommandOperationDefinition>
+            {
+                new CommandOperationDefinition
+                {
+                    Name = "MeasureVoltage",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
+                    }
+                },
+                new CommandOperationDefinition { Name = "Identify" }
+            }
+        };
+    }
+
+    private static DeviceCommandDefinition BuildDefinitionForPsu(DriverInstanceConfiguration cfg)
+    {
+        return new DeviceCommandDefinition
+        {
+            DeviceType = cfg.DeviceType,
+            DriverId = cfg.DriverId,
+            DriverParameters = new List<CommandParameterDefinition>(),
+            Operations = new List<CommandOperationDefinition>
+            {
+                new CommandOperationDefinition
+                {
+                    Name = "SetVoltage",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
+                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
+                    }
+                },
+                new CommandOperationDefinition
+                {
+                    Name = "SetCurrentLimit",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
+                    }
+                },
+                new CommandOperationDefinition
+                {
+                    Name = "SetOutput",
+                    Parameters = new List<CommandParameterDefinition>
+                    {
+                        new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
+                    }
+                },
+                new CommandOperationDefinition { Name = "OutputOff" },
+                new CommandOperationDefinition { Name = "Identify" }
+            }
+        };
     }
 }
