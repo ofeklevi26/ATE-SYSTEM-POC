@@ -15,9 +15,9 @@ public interface IConfiguredWrapperProvider
 
 public sealed class ConfiguredWrapperRegistration
 {
-    public required IDeviceDriver Driver { get; init; }
+    public IDeviceDriver Driver { get; set; } = null!;
 
-    public required DeviceCommandDefinition Definition { get; init; }
+    public DeviceCommandDefinition Definition { get; set; } = null!;
 
-    public string? Description { get; init; }
+    public string? Description { get; set; }
 }

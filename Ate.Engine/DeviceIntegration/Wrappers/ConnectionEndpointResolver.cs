@@ -1,4 +1,3 @@
-using System;
 using Ate.Engine.Configuration;
 
 namespace Ate.Engine.Wrappers;
@@ -15,8 +14,8 @@ public static class ConnectionEndpointResolver
         if (configuration.Settings.TryGetValue("endpointFormat", out var endpointFormat) && !string.IsNullOrWhiteSpace(endpointFormat))
         {
             return endpointFormat
-                .Replace("{ip}", configuration.Ip ?? string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("{port}", configuration.Port?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+                .Replace("{ip}", configuration.Ip ?? string.Empty)
+                .Replace("{port}", configuration.Port?.ToString() ?? string.Empty);
         }
 
         if (configuration.Port.HasValue && configuration.Port.Value > 0)
