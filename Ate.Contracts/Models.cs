@@ -69,6 +69,8 @@ public sealed class DeviceCommandDefinition
 
     public string DriverId { get; set; } = "default";
 
+    public List<CommandParameterDefinition> DriverParameters { get; set; } = new List<CommandParameterDefinition>();
+
     public List<CommandOperationDefinition> Operations { get; set; } = new List<CommandOperationDefinition>();
 
     public override string ToString() => DeviceType;
