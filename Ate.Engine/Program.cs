@@ -76,7 +76,16 @@ public static class Program
         {
             DeviceType = cfg.DeviceType,
             DriverId = cfg.DriverId,
-            DriverParameters = new List<CommandParameterDefinition>(),
+            DriverParameters = new List<CommandParameterDefinition>
+            {
+                new CommandParameterDefinition
+                {
+                    Name = "channel",
+                    Type = ParameterValueType.Integer,
+                    IsRequired = true,
+                    DefaultValue = cfg.Channel.ToString()
+                }
+            },
             Operations = new List<CommandOperationDefinition>
             {
                 new CommandOperationDefinition
@@ -98,7 +107,16 @@ public static class Program
         {
             DeviceType = cfg.DeviceType,
             DriverId = cfg.DriverId,
-            DriverParameters = new List<CommandParameterDefinition>(),
+            DriverParameters = new List<CommandParameterDefinition>
+            {
+                new CommandParameterDefinition
+                {
+                    Name = "channel",
+                    Type = ParameterValueType.Integer,
+                    IsRequired = true,
+                    DefaultValue = cfg.Channel.ToString()
+                }
+            },
             Operations = new List<CommandOperationDefinition>
             {
                 new CommandOperationDefinition
