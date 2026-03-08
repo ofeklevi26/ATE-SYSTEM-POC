@@ -12,11 +12,12 @@ public sealed class DmmDeviceWrapper : IDeviceDriver
 {
     private readonly IDmmHardwareDriver _hardware;
 
-    public DmmDeviceWrapper(string driverId, string ip, int channel, IDmmHardwareDriver hardware)
+    public DmmDeviceWrapper(string driverId, string ip, int channel, string endpoint, IDmmHardwareDriver hardware)
     {
         DriverId = driverId;
         Ip = ip;
         Channel = channel;
+        Endpoint = endpoint;
         _hardware = hardware;
     }
 
@@ -28,11 +29,13 @@ public sealed class DmmDeviceWrapper : IDeviceDriver
 
     public int Channel { get; }
 
+    public string Endpoint { get; }
+
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
-        _hardware.Connect(Ip);
+        _hardware.Connect(Endpoint);
         try
         {
             var channel = ReadInt(parameters, "channel", Channel);

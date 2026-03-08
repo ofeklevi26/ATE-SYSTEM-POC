@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Ate.Contracts;
-using Ate.Engine.DemoDrivers;
-using Ate.Engine.Wrappers;
+using System.Linq;
+using System.Reflection;
 using Ate.Engine.Commands;
 using Ate.Engine.Configuration;
+using Ate.Engine.DeviceIntegration.Providers;
 using Ate.Engine.Drivers;
 using Ate.Engine.Infrastructure;
 using Microsoft.Owin.Hosting;
@@ -27,10 +27,10 @@ public static class Program
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
 
-        RegisterConfiguredDriverWrappers(config, registry, logger);
+        var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
+        RegisterConfiguredDriverWrappers(config, registry, logger, driversPath);
 
         var loader = new DriverLoader(registry, logger);
-        var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
         loader.LoadFromDirectory(driversPath);
 
         invoker.Start();
@@ -47,107 +47,74 @@ public static class Program
         invoker.StopAsync().GetAwaiter().GetResult();
     }
 
-    private static void RegisterConfiguredDriverWrappers(EngineConfiguration config, DriverRegistry registry, ILogger logger)
+    private static void RegisterConfiguredDriverWrappers(EngineConfiguration config, DriverRegistry registry, ILogger logger, string driversPath)
     {
+        var providers = DiscoverConfiguredWrapperProviders(logger, driversPath);
+
         foreach (var cfg in config.Drivers)
         {
-            if (cfg.DeviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase))
+            var provider = ResolveProvider(providers, cfg);
+            if (provider == null)
             {
-                var wrapper = new DmmDeviceWrapper(cfg.DriverId, cfg.Ip, cfg.Channel, new DemoDmmHardwareDriver());
-                registry.RegisterInstance(wrapper, BuildDefinitionForDmm(cfg));
-                logger.Info($"Registered configured wrapper DMM::{cfg.DriverId} @ {cfg.Ip} CH{cfg.Channel}");
+                logger.Error($"No wrapper provider found for deviceType='{cfg.DeviceType}', wrapperProviderType='{cfg.WrapperProviderType ?? "(auto)"}'.");
                 continue;
             }
 
-            if (cfg.DeviceType.Equals("PSU", StringComparison.OrdinalIgnoreCase))
-            {
-                var wrapper = new PsuDeviceWrapper(cfg.DriverId, cfg.Ip, cfg.Channel, new DemoPsuHardwareDriver());
-                registry.RegisterInstance(wrapper, BuildDefinitionForPsu(cfg));
-                logger.Info($"Registered configured wrapper PSU::{cfg.DriverId} @ {cfg.Ip} CH{cfg.Channel}");
-                continue;
-            }
-
-            logger.Error($"Unsupported configured device type '{cfg.DeviceType}'.");
+            var registration = provider.Create(cfg, logger);
+            registry.RegisterInstance(registration.Driver, registration.Definition);
+            logger.Info($"Registered configured wrapper via provider '{provider.Name}': {registration.Description ?? cfg.DriverId}");
         }
     }
 
-    private static DeviceCommandDefinition BuildDefinitionForDmm(DriverInstanceConfiguration cfg)
+    private static IReadOnlyList<IConfiguredWrapperProvider> DiscoverConfiguredWrapperProviders(ILogger logger, string driversPath)
     {
-        return new DeviceCommandDefinition
+        var providers = new List<IConfiguredWrapperProvider>
         {
-            DeviceType = cfg.DeviceType,
-            DriverId = cfg.DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition
-                {
-                    Name = "channel",
-                    Type = ParameterValueType.Integer,
-                    IsRequired = true,
-                    DefaultValue = cfg.Channel.ToString()
-                }
-            },
-            Operations = new List<CommandOperationDefinition>
-            {
-                new CommandOperationDefinition
-                {
-                    Name = "MeasureVoltage",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
-                    }
-                },
-                new CommandOperationDefinition { Name = "Identify" }
-            }
+            new DmmConfiguredWrapperProvider(),
+            new PsuConfiguredWrapperProvider()
         };
+
+        if (!Directory.Exists(driversPath))
+        {
+            return providers;
+        }
+
+        foreach (var dll in Directory.GetFiles(driversPath, "*.dll"))
+        {
+            try
+            {
+                var asm = Assembly.LoadFrom(dll);
+                foreach (var type in asm.GetTypes().Where(IsConfiguredProviderType))
+                {
+                    var provider = (IConfiguredWrapperProvider)Activator.CreateInstance(type)!;
+                    providers.Add(provider);
+                    logger.Info($"Loaded configured wrapper provider '{type.FullName}' from '{dll}'.");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to discover configured wrapper providers from '{dll}'.", ex);
+            }
+        }
+
+        return providers;
     }
 
-    private static DeviceCommandDefinition BuildDefinitionForPsu(DriverInstanceConfiguration cfg)
+    private static IConfiguredWrapperProvider? ResolveProvider(IReadOnlyList<IConfiguredWrapperProvider> providers, DriverInstanceConfiguration configuration)
     {
-        return new DeviceCommandDefinition
+        if (!string.IsNullOrWhiteSpace(configuration.WrapperProviderType))
         {
-            DeviceType = cfg.DeviceType,
-            DriverId = cfg.DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition
-                {
-                    Name = "channel",
-                    Type = ParameterValueType.Integer,
-                    IsRequired = true,
-                    DefaultValue = cfg.Channel.ToString()
-                }
-            },
-            Operations = new List<CommandOperationDefinition>
-            {
-                new CommandOperationDefinition
-                {
-                    Name = "SetVoltage",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
-                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
-                    }
-                },
-                new CommandOperationDefinition
-                {
-                    Name = "SetCurrentLimit",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
-                    }
-                },
-                new CommandOperationDefinition
-                {
-                    Name = "SetOutput",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
-                    }
-                },
-                new CommandOperationDefinition { Name = "OutputOff" },
-                new CommandOperationDefinition { Name = "Identify" }
-            }
-        };
+            return providers.FirstOrDefault(p =>
+                p.Name.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase) ||
+                p.GetType().FullName?.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase) == true ||
+                p.GetType().Name.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return providers.FirstOrDefault(p => p.CanCreate(configuration));
+    }
+
+    private static bool IsConfiguredProviderType(Type type)
+    {
+        return !type.IsAbstract && typeof(IConfiguredWrapperProvider).IsAssignableFrom(type) && type.GetConstructor(Type.EmptyTypes) != null;
     }
 }

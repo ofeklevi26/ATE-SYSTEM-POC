@@ -8,3 +8,9 @@ Engine-specific structure is organized by responsibility:
 - `Core/` for queue/command/driver runtime,
 - `DeviceIntegration/` for wrapper + hardware abstraction + demo implementations,
 - `Common/` for logging and serialization utilities.
+
+
+Configured wrapper providers
+- `IConfiguredWrapperProvider` is the extension seam for nugget-specific wrapper instantiation.
+- Providers can be discovered from `drivers/*.dll` at startup.
+- `DriverInstanceConfiguration.Settings` supports custom per-wrapper arguments and endpoint formatting.

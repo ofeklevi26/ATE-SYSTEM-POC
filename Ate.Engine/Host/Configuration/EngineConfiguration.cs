@@ -50,4 +50,10 @@ public sealed class DriverInstanceConfiguration
     public string Ip { get; set; } = string.Empty;
 
     public int Channel { get; set; } = 1;
+
+    public int? Port { get; set; }
+
+    public string? WrapperProviderType { get; set; }
+
+    public Dictionary<string, string> Settings { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
