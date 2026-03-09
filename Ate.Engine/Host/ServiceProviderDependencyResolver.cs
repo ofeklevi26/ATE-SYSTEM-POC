@@ -7,16 +7,18 @@ namespace Ate.Engine;
 
 public sealed class ServiceProviderDependencyResolver : IDependencyResolver
 {
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IServiceProvider _serviceProvider;
 
     public ServiceProviderDependencyResolver(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
+        _scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
     }
 
     public IDependencyScope BeginScope()
     {
-        return this;
+        return new ServiceProviderDependencyScope(_scopeFactory.CreateScope());
     }
 
     public object? GetService(Type serviceType)
@@ -31,5 +33,30 @@ public sealed class ServiceProviderDependencyResolver : IDependencyResolver
 
     public void Dispose()
     {
+    }
+
+    private sealed class ServiceProviderDependencyScope : IDependencyScope
+    {
+        private readonly IServiceScope _scope;
+
+        public ServiceProviderDependencyScope(IServiceScope scope)
+        {
+            _scope = scope;
+        }
+
+        public object? GetService(Type serviceType)
+        {
+            return _scope.ServiceProvider.GetService(serviceType);
+        }
+
+        public IEnumerable<object> GetServices(Type serviceType)
+        {
+            return _scope.ServiceProvider.GetServices(serviceType);
+        }
+
+        public void Dispose()
+        {
+            _scope.Dispose();
+        }
     }
 }

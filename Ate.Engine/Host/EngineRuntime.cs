@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Ate.Engine.Commands;
 using Ate.Engine.Configuration;
+using Ate.Engine.Controllers;
 using Ate.Engine.DemoDrivers;
 using Ate.Engine.DeviceIntegration.Providers;
 using Ate.Engine.Drivers;
@@ -77,6 +78,11 @@ public sealed class EngineRuntime : IDisposable
 
         services.AddSingleton<IConfiguredWrapperProvider, DmmConfiguredWrapperProvider>();
         services.AddSingleton<IConfiguredWrapperProvider, PsuConfiguredWrapperProvider>();
+
+        services.AddTransient<CommandController>();
+        services.AddTransient<StatusController>();
+        services.AddTransient<EngineController>();
+        services.AddTransient<CapabilitiesController>();
 
         return services;
     }
