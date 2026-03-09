@@ -66,12 +66,12 @@ There is **no direct code dependency** from UI to Engine assemblies; integration
 
 ## 3) End-to-end wiring (startup to command execution)
 
-## 3.1 Engine boot sequence (`Program.cs`)
+## 3.1 Engine boot sequence (`Program.cs` + `EngineRuntime.cs`)
 
 At startup, engine does the following in order:
 
 1. Creates core singletons: `ConsoleLogger`, `DriverRegistry`, `CommandInvoker`.
-2. Registers runtime services (`ILogger`, `DriverRegistry`, `CommandInvoker`) in a dependency resolver for controller access.
+2. Builds DI container and registers runtime services (`ILogger`, `DriverRegistry`, `CommandInvoker`) + provider/factory services.
 3. Loads `engine-config.json` into `EngineConfiguration`.
 4. Discovers configured wrapper providers (built-in + plugin DLLs).
 5. For each configured driver instance, asks provider to create wrapper+definition and registers it.
@@ -87,7 +87,7 @@ At startup, engine does the following in order:
 - camelCase JSON output,
 - null-value ignore.
 
-Controllers use constructor injection; dependencies are resolved through the host dependency resolver.
+Controllers use constructor injection; dependencies are resolved through a Web API resolver adapter over the DI service provider.
 
 ## 3.3 Command lifecycle
 
@@ -174,21 +174,20 @@ ATE-SYSTEM-POC/
 │   │
 │   ├── Host/
 │   │   ├── Program.cs
-│   │   │   Role: Process entry point + complete runtime composition root.
-│   │   │   Depends on:
-│   │   │     - EngineConfiguration (config loading)
-│   │   │     - DriverRegistry + DriverLoader (registration/discovery)
-│   │   │     - CommandInvoker (queue worker)
-│   │   │     - Built-in providers (DMM/PSU)
-│   │   │     - OWIN startup class.
+│   │   │   Role: Thin process entry point that starts/stops runtime host.
+│   │   │   Depends on: EngineRuntime.
 │   │   │
 │   │   ├── Startup.cs
 │   │   │   Role: OWIN/WebApi route + JSON settings.
 │   │   │   Depends on: Owin + System.Web.Http + Newtonsoft settings.
 │   │   │
-│   │   ├── SimpleDependencyResolver.cs
-│   │   │   Role: Minimal `IDependencyResolver` implementation used by Web API for constructor injection.
-│   │   │   Depends on: `System.Web.Http.Dependencies` + reflection.
+│   │   ├── EngineRuntime.cs
+│   │   │   Role: Runtime composition root for DI setup, provider discovery, wrapper registration, and host lifecycle.
+│   │   │   Depends on: `Microsoft.Extensions.DependencyInjection` + OWIN hosting + engine runtime services.
+│   │   │
+│   │   ├── ServiceProviderDependencyResolver.cs
+│   │   │   Role: `IDependencyResolver` adapter over `IServiceProvider` for Web API controller activation.
+│   │   │   Depends on: `System.Web.Http.Dependencies` + `Microsoft.Extensions.DependencyInjection`.
 │   │   │
 │   │   └── Configuration/EngineConfiguration.cs
 │   │       Role: Config model + JSON load/default logic.
@@ -380,7 +379,7 @@ If you need to explain the app quickly:
 
 ### Notable observations (current state, not necessarily defects)
 - Engine targets `.NET Framework 4.7.2`, while UI targets `.NET 6` (cross-targeting split).
-- Host-level dependency injection is in place via `SimpleDependencyResolver`; runtime services are injected into controllers instead of using global static state.
+- Host-level dependency injection is wired through `Microsoft.Extensions.DependencyInjection` with a Web API resolver adapter; runtime services are injected into controllers instead of using global static state.
 - UI has a local fallback capability catalog to stay usable when engine is unreachable.
 - Demo hardware drivers are in-memory simulations; no real transport implementation is present yet.
 
