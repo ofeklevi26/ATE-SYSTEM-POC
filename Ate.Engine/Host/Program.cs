@@ -20,10 +20,6 @@ public static class Program
         var registry = new DriverRegistry();
         var invoker = new CommandInvoker(logger);
 
-        EngineHostContext.Logger = logger;
-        EngineHostContext.DriverRegistry = registry;
-        EngineHostContext.CommandInvoker = invoker;
-
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
 
@@ -35,8 +31,10 @@ public static class Program
 
         invoker.Start();
 
+        var dependencyResolver = BuildDependencyResolver(logger, registry, invoker);
+
         var baseAddress = "http://localhost:9000/";
-        using (WebApp.Start<Startup>(url: baseAddress))
+        using (WebApp.Start(baseAddress, appBuilder => new Startup(dependencyResolver).Configuration(appBuilder)))
         {
             logger.Info($"ATE engine listening at {baseAddress}");
             logger.Info("Press ENTER to stop...");
@@ -45,6 +43,16 @@ public static class Program
 
         logger.Info("Stopping engine...");
         invoker.StopAsync().GetAwaiter().GetResult();
+    }
+
+    private static SimpleDependencyResolver BuildDependencyResolver(ILogger logger, DriverRegistry registry, CommandInvoker invoker)
+    {
+        return new SimpleDependencyResolver(new Dictionary<Type, Func<object>>
+        {
+            [typeof(ILogger)] = () => logger,
+            [typeof(DriverRegistry)] = () => registry,
+            [typeof(CommandInvoker)] = () => invoker
+        });
     }
 
     private static void RegisterConfiguredDriverWrappers(EngineConfiguration config, DriverRegistry registry, ILogger logger, string driversPath)

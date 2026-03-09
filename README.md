@@ -21,9 +21,9 @@ ATE-SYSTEM-POC/
 │   ├── README.md                          # Engine-local architecture notes.
 │   │
 │   ├── Host/
-│   │   ├── Program.cs                     # Process entry point; wires logger/registry/invoker, loads config, starts web host.
+│   │   ├── Program.cs                     # Process entry point and composition root; wires services, loads config, starts web host.
 │   │   ├── Startup.cs                     # OWIN/WebApi pipeline and route/json configuration.
-│   │   ├── EngineHostContext.cs           # Shared host singletons used by API/controllers.
+│   │   ├── SimpleDependencyResolver.cs    # Minimal Web API dependency resolver for constructor injection.
 │   │   └── Configuration/
 │   │       └── EngineConfiguration.cs     # Loads/parses engine-config.json into typed config models.
 │   │
@@ -83,6 +83,7 @@ ATE-SYSTEM-POC/
 
 - `Ate.Contracts` stays implementation-agnostic and only carries shared transport models.
 - `Ate.Engine` isolates runtime core from device-integration concerns and keeps wrappers separate from hardware implementations.
+- `Ate.Engine` now uses constructor injection for API controllers via a host-level dependency resolver, removing global host context state.
 - `Ate.Ui` remains a thin client that drives the engine exclusively through HTTP contracts.
 
 

@@ -71,7 +71,7 @@ There is **no direct code dependency** from UI to Engine assemblies; integration
 At startup, engine does the following in order:
 
 1. Creates core singletons: `ConsoleLogger`, `DriverRegistry`, `CommandInvoker`.
-2. Stores them in `EngineHostContext` static holder for controller access.
+2. Registers runtime services (`ILogger`, `DriverRegistry`, `CommandInvoker`) in a dependency resolver for controller access.
 3. Loads `engine-config.json` into `EngineConfiguration`.
 4. Discovers configured wrapper providers (built-in + plugin DLLs).
 5. For each configured driver instance, asks provider to create wrapper+definition and registers it.
@@ -87,7 +87,7 @@ At startup, engine does the following in order:
 - camelCase JSON output,
 - null-value ignore.
 
-Controllers rely on `EngineHostContext` static references to invoke runtime services.
+Controllers use constructor injection; dependencies are resolved through the host dependency resolver.
 
 ## 3.3 Command lifecycle
 
@@ -186,9 +186,9 @@ ATE-SYSTEM-POC/
 │   │   │   Role: OWIN/WebApi route + JSON settings.
 │   │   │   Depends on: Owin + System.Web.Http + Newtonsoft settings.
 │   │   │
-│   │   ├── EngineHostContext.cs
-│   │   │   Role: Static bridge exposing logger/registry/invoker to controllers.
-│   │   │   Depends on: ILogger, DriverRegistry, CommandInvoker.
+│   │   ├── SimpleDependencyResolver.cs
+│   │   │   Role: Minimal `IDependencyResolver` implementation used by Web API for constructor injection.
+│   │   │   Depends on: `System.Web.Http.Dependencies` + reflection.
 │   │   │
 │   │   └── Configuration/EngineConfiguration.cs
 │   │       Role: Config model + JSON load/default logic.
@@ -197,19 +197,19 @@ ATE-SYSTEM-POC/
 │   ├── Api/Controllers/
 │   │   ├── CommandController.cs
 │   │   │   Role: POST `/api/command`; validates request, normalizes params, enqueues command.
-│   │   │   Depends on: Ate.Contracts models + OperateDeviceCommand + ParameterValueNormalizer + EngineHostContext.
+│   │   │   Depends on: Ate.Contracts models + OperateDeviceCommand + ParameterValueNormalizer + constructor-injected DriverRegistry/ILogger/CommandInvoker.
 │   │   │
 │   │   ├── StatusController.cs
 │   │   │   Role: GET `/api/status`; exposes invoker state and loaded driver keys.
-│   │   │   Depends on: EngineHostContext + EngineStatus contract.
+│   │   │   Depends on: constructor-injected CommandInvoker + DriverRegistry + EngineStatus contract.
 │   │   │
 │   │   ├── EngineController.cs
 │   │   │   Role: POST control endpoints (`pause`, `resume`, `clear`, `abort-current`).
-│   │   │   Depends on: EngineHostContext.CommandInvoker.
+│   │   │   Depends on: constructor-injected CommandInvoker.
 │   │   │
 │   │   └── CapabilitiesController.cs
 │   │       Role: GET `/api/capabilities`; returns command metadata used by UI to render forms.
-│   │       Depends on: EngineHostContext.DriverRegistry.
+│   │       Depends on: constructor-injected DriverRegistry.
 │   │
 │   ├── Core/Commands/
 │   │   ├── IAteCommand.cs
@@ -380,7 +380,7 @@ If you need to explain the app quickly:
 
 ### Notable observations (current state, not necessarily defects)
 - Engine targets `.NET Framework 4.7.2`, while UI targets `.NET 6` (cross-targeting split).
-- `EngineHostContext` uses global static state for dependency access.
+- Host-level dependency injection is in place via `SimpleDependencyResolver`; runtime services are injected into controllers instead of using global static state.
 - UI has a local fallback capability catalog to stay usable when engine is unreachable.
 - Demo hardware drivers are in-memory simulations; no real transport implementation is present yet.
 
