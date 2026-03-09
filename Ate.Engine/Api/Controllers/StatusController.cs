@@ -1,23 +1,33 @@
 using System.Web.Http;
 using Ate.Contracts;
+using Ate.Engine.Commands;
+using Ate.Engine.Drivers;
 
 namespace Ate.Engine.Controllers;
 
 [RoutePrefix("api/status")]
 public sealed class StatusController : ApiController
 {
+    private readonly CommandInvoker _commandInvoker;
+    private readonly DriverRegistry _driverRegistry;
+
+    public StatusController(CommandInvoker commandInvoker, DriverRegistry driverRegistry)
+    {
+        _commandInvoker = commandInvoker;
+        _driverRegistry = driverRegistry;
+    }
+
     [HttpGet]
     [Route("")]
     public IHttpActionResult GetStatus()
     {
-        var invoker = EngineHostContext.CommandInvoker;
         var status = new EngineStatus
         {
-            State = invoker.State,
-            QueueLength = invoker.QueueLength,
-            CurrentCommand = invoker.CurrentCommand,
-            LastError = invoker.LastError,
-            LoadedDrivers = new System.Collections.Generic.List<string>(EngineHostContext.DriverRegistry.GetLoadedDrivers())
+            State = _commandInvoker.State,
+            QueueLength = _commandInvoker.QueueLength,
+            CurrentCommand = _commandInvoker.CurrentCommand,
+            LastError = _commandInvoker.LastError,
+            LoadedDrivers = new System.Collections.Generic.List<string>(_driverRegistry.GetLoadedDrivers())
         };
 
         return Ok(status);

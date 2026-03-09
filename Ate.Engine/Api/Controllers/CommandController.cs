@@ -2,6 +2,8 @@ using System;
 using System.Web.Http;
 using Ate.Contracts;
 using Ate.Engine.Commands;
+using Ate.Engine.Drivers;
+using Ate.Engine.Infrastructure;
 using Ate.Engine.Serialization;
 
 namespace Ate.Engine.Controllers;
@@ -9,6 +11,17 @@ namespace Ate.Engine.Controllers;
 [RoutePrefix("api/command")]
 public sealed class CommandController : ApiController
 {
+    private readonly CommandInvoker _commandInvoker;
+    private readonly DriverRegistry _driverRegistry;
+    private readonly ILogger _logger;
+
+    public CommandController(CommandInvoker commandInvoker, DriverRegistry driverRegistry, ILogger logger)
+    {
+        _commandInvoker = commandInvoker;
+        _driverRegistry = driverRegistry;
+        _logger = logger;
+    }
+
     [HttpPost]
     [Route("")]
     public IHttpActionResult EnqueueCommand([FromBody] DeviceCommandRequest request)
@@ -26,10 +39,10 @@ public sealed class CommandController : ApiController
             request.DriverId,
             request.Operation,
             ParameterValueNormalizer.Normalize(request.Parameters),
-            EngineHostContext.DriverRegistry,
-            EngineHostContext.Logger);
+            _driverRegistry,
+            _logger);
 
-        EngineHostContext.CommandInvoker.Enqueue(command);
+        _commandInvoker.Enqueue(command);
 
         return Ok(new DeviceCommandResponse
         {

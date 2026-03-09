@@ -21,9 +21,10 @@ ATE-SYSTEM-POC/
 │   ├── README.md                          # Engine-local architecture notes.
 │   │
 │   ├── Host/
-│   │   ├── Program.cs                     # Process entry point; wires logger/registry/invoker, loads config, starts web host.
-│   │   ├── Startup.cs                     # OWIN/WebApi pipeline and route/json configuration.
-│   │   ├── EngineHostContext.cs           # Shared host singletons used by API/controllers.
+│   │   ├── Program.cs                     # Process entry point; wires DI container, loads config, starts web host.
+│   │   ├── Startup.cs                     # OWIN/WebApi pipeline, route/json configuration, and DI resolver hookup.
+│   │   ├── DependencyInjection/
+│   │   │   └── ServiceProviderDependencyResolver.cs # Bridges Microsoft DI container to WebApi dependency resolver.
 │   │   └── Configuration/
 │   │       └── EngineConfiguration.cs     # Loads/parses engine-config.json into typed config models.
 │   │
@@ -69,12 +70,13 @@ ATE-SYSTEM-POC/
 │
 └── Ate.Ui/
     ├── Ate.Ui.csproj                      # WPF client project and UI dependencies.
-    ├── App.xaml                           # WPF app declaration/resources and startup window reference.
-    ├── App.xaml.cs                        # WPF application code-behind entry class.
+    ├── App.xaml                           # WPF app declaration/resources.
+    ├── App.xaml.cs                        # WPF startup class; composes and owns the UI DI container.
     ├── MainWindow.xaml                    # Main client UI layout (device/operation/parameters/controls/status).
-    ├── MainWindow.xaml.cs                 # Main window code-behind that sets ViewModel as DataContext.
+    ├── MainWindow.xaml.cs                 # Main window code-behind that receives an injected ViewModel as DataContext.
     ├── Services/
-    │   └── AteClient.cs                   # HTTP client wrapper for calling engine API endpoints.
+    │   ├── IAteClient.cs                  # UI client abstraction used by ViewModels.
+    │   └── AteClient.cs                   # HTTP client implementation for calling engine API endpoints.
     └── ViewModels/
         └── MainViewModel.cs               # UI state/commands: load capabilities, build params, send commands, poll status.
 ```

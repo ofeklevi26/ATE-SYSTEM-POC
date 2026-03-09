@@ -8,6 +8,7 @@ using Ate.Engine.Configuration;
 using Ate.Engine.DeviceIntegration.Providers;
 using Ate.Engine.Drivers;
 using Ate.Engine.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Owin.Hosting;
 
 namespace Ate.Engine;
@@ -16,13 +17,15 @@ public static class Program
 {
     public static void Main(string[] args)
     {
-        var logger = new ConsoleLogger();
-        var registry = new DriverRegistry();
-        var invoker = new CommandInvoker(logger);
+        var services = new ServiceCollection();
+        services.AddSingleton<ILogger, ConsoleLogger>();
+        services.AddSingleton<DriverRegistry>();
+        services.AddSingleton<CommandInvoker>();
 
-        EngineHostContext.Logger = logger;
-        EngineHostContext.DriverRegistry = registry;
-        EngineHostContext.CommandInvoker = invoker;
+        using var serviceProvider = services.BuildServiceProvider();
+        var logger = serviceProvider.GetRequiredService<ILogger>();
+        var registry = serviceProvider.GetRequiredService<DriverRegistry>();
+        var invoker = serviceProvider.GetRequiredService<CommandInvoker>();
 
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
@@ -36,6 +39,7 @@ public static class Program
         invoker.Start();
 
         var baseAddress = "http://localhost:9000/";
+        Startup.ServiceProvider = serviceProvider;
         using (WebApp.Start<Startup>(url: baseAddress))
         {
             logger.Info($"ATE engine listening at {baseAddress}");

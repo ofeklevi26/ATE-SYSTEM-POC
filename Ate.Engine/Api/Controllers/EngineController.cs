@@ -1,15 +1,23 @@
 using System.Web.Http;
+using Ate.Engine.Commands;
 
 namespace Ate.Engine.Controllers;
 
 [RoutePrefix("api/engine")]
 public sealed class EngineController : ApiController
 {
+    private readonly CommandInvoker _commandInvoker;
+
+    public EngineController(CommandInvoker commandInvoker)
+    {
+        _commandInvoker = commandInvoker;
+    }
+
     [HttpPost]
     [Route("pause")]
     public IHttpActionResult Pause()
     {
-        EngineHostContext.CommandInvoker.Pause();
+        _commandInvoker.Pause();
         return Ok();
     }
 
@@ -17,7 +25,7 @@ public sealed class EngineController : ApiController
     [Route("resume")]
     public IHttpActionResult Resume()
     {
-        EngineHostContext.CommandInvoker.Resume();
+        _commandInvoker.Resume();
         return Ok();
     }
 
@@ -25,7 +33,7 @@ public sealed class EngineController : ApiController
     [Route("clear")]
     public IHttpActionResult Clear()
     {
-        EngineHostContext.CommandInvoker.ClearPending();
+        _commandInvoker.ClearPending();
         return Ok();
     }
 
@@ -33,7 +41,7 @@ public sealed class EngineController : ApiController
     [Route("abort-current")]
     public IHttpActionResult AbortCurrent()
     {
-        EngineHostContext.CommandInvoker.AbortCurrent();
+        _commandInvoker.AbortCurrent();
         return Ok();
     }
 }

@@ -7,7 +7,7 @@ using Ate.Contracts;
 
 namespace Ate.Ui.Services;
 
-public sealed class AteClient
+public sealed class AteClient : IAteClient
 {
     private readonly HttpClient _httpClient;
 

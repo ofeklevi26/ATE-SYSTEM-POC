@@ -15,15 +15,16 @@ namespace Ate.Ui.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private readonly AteClient _client = new AteClient();
+    private readonly IAteClient _client;
     private readonly DispatcherTimer _timer;
 
     private DeviceCommandDefinition? _selectedDevice;
     private CommandOperationDefinition? _selectedOperation;
     private string _statusText = "Disconnected";
 
-    public MainViewModel()
+    public MainViewModel(IAteClient client)
     {
+        _client = client;
         Devices = new ObservableCollection<DeviceCommandDefinition>();
         Operations = new ObservableCollection<CommandOperationDefinition>();
         ParameterInputs = new ObservableCollection<ParameterInputViewModel>();
