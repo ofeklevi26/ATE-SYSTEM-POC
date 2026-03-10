@@ -8,7 +8,7 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 - Command queue worker (`CommandInvoker`) with pause/resume/clear/abort controls.
 - Driver registration and lookup (`DriverRegistry`).
 - Configured wrapper bootstrapping (`ConfiguredWrapperRegistrar` + `ConfiguredWrapperFactory`).
-- Runtime operation reflection (`WrapperOperationRuntime`) for execution, with capability metadata sourced from hardcoded contracts for known device types and reflection fallback for unknown/plugin wrappers.
+- Runtime operation reflection (`WrapperOperationRuntime`) for execution, with capability metadata sourced from hardcoded contracts for known device types and reflection fallback for unknown/plugin wrappers; known-family wrappers are validated against catalog signatures at startup and fail fast on drift.
 
 ## Startup sequence (`EngineRuntime.Start`)
 

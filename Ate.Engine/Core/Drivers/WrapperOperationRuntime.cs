@@ -19,6 +19,7 @@ public static class WrapperOperationRuntime
     {
         if (KnownCapabilitiesCatalog.TryCreateDefinition(driver.DeviceType, driver.DriverId, out var knownDefinition))
         {
+            ValidateContractConsistency(driver.GetType(), knownDefinition);
             return knownDefinition;
         }
 
@@ -59,6 +60,82 @@ public static class WrapperOperationRuntime
         catch (TargetInvocationException ex) when (ex.InnerException != null)
         {
             throw ex.InnerException;
+        }
+    }
+
+
+    private static void ValidateContractConsistency(Type wrapperType, DeviceCommandDefinition contractDefinition)
+    {
+        var reflectedOperations = GetOperationMethods(wrapperType)
+            .Select(kvp => BuildOperationDefinition(kvp.Key, kvp.Value))
+            .ToDictionary(op => op.Name, StringComparer.OrdinalIgnoreCase);
+
+        var contractOperations = contractDefinition.Operations
+            .ToDictionary(op => op.Name, StringComparer.OrdinalIgnoreCase);
+
+        var missingInWrapper = contractOperations.Keys
+            .Where(name => !reflectedOperations.ContainsKey(name))
+            .OrderBy(x => x)
+            .ToList();
+
+        if (missingInWrapper.Count > 0)
+        {
+            throw new InvalidOperationException($"KnownCapabilitiesCatalog drift for deviceType '{contractDefinition.DeviceType}' on wrapper '{wrapperType.FullName}': operations declared in contract but missing in wrapper: {string.Join(", ", missingInWrapper)}.");
+        }
+
+        var missingInContract = reflectedOperations.Keys
+            .Where(name => !contractOperations.ContainsKey(name))
+            .OrderBy(x => x)
+            .ToList();
+
+        if (missingInContract.Count > 0)
+        {
+            throw new InvalidOperationException($"KnownCapabilitiesCatalog drift for deviceType '{contractDefinition.DeviceType}' on wrapper '{wrapperType.FullName}': operations declared in wrapper but missing in contract: {string.Join(", ", missingInContract)}.");
+        }
+
+        foreach (var operationName in contractOperations.Keys.OrderBy(x => x))
+        {
+            var contractOperation = contractOperations[operationName];
+            var reflectedOperation = reflectedOperations[operationName];
+
+            ValidateParameterConsistency(wrapperType, contractDefinition.DeviceType, contractOperation, reflectedOperation);
+        }
+    }
+
+    private static void ValidateParameterConsistency(
+        Type wrapperType,
+        string deviceType,
+        CommandOperationDefinition contractOperation,
+        CommandOperationDefinition reflectedOperation)
+    {
+        if (contractOperation.Parameters.Count != reflectedOperation.Parameters.Count)
+        {
+            throw new InvalidOperationException(
+                $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}' on wrapper '{wrapperType.FullName}': parameter count mismatch (contract={contractOperation.Parameters.Count}, wrapper={reflectedOperation.Parameters.Count}).");
+        }
+
+        for (var i = 0; i < contractOperation.Parameters.Count; i++)
+        {
+            var contractParameter = contractOperation.Parameters[i];
+            var reflectedParameter = reflectedOperation.Parameters[i];
+
+            if (!contractParameter.Name.Equals(reflectedParameter.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}' on wrapper '{wrapperType.FullName}': parameter #{i + 1} name mismatch (contract='{contractParameter.Name}', wrapper='{reflectedParameter.Name}').");
+            }
+
+            if (contractParameter.Type != reflectedParameter.Type)
+            {
+                throw new InvalidOperationException(
+                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': ParameterValueType mismatch (contract={contractParameter.Type}, wrapper={reflectedParameter.Type}).");
+            }
+
+            if (contractParameter.IsRequired != reflectedParameter.IsRequired)
+            {
+                throw new InvalidOperationException(
+                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': IsRequired mismatch (contract={contractParameter.IsRequired}, wrapper={reflectedParameter.IsRequired}).");
+            }
         }
     }
 
