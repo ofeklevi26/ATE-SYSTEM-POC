@@ -105,9 +105,16 @@ public sealed class EngineRuntime : IDisposable
                 continue;
             }
 
-            var registration = provider.Create(cfg, logger);
-            registry.RegisterInstance(registration.Driver, registration.Definition);
-            logger.Info($"Registered configured wrapper via provider '{provider.Name}': {registration.Description ?? cfg.DriverId}");
+            try
+            {
+                var registration = provider.Create(cfg, logger);
+                registry.RegisterInstance(registration.Driver, registration.Definition);
+                logger.Info($"Registered configured wrapper via provider '{provider.Name}': {registration.Description ?? cfg.DriverId}");
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to create configured wrapper via provider '{provider.Name}' for driverId='{cfg.DriverId}'.", ex);
+            }
         }
     }
 

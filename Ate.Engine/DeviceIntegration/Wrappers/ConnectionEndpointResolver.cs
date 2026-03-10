@@ -6,23 +6,21 @@ public static class ConnectionEndpointResolver
 {
     public static string Resolve(DriverInstanceConfiguration configuration)
     {
-        if (configuration.Settings.TryGetValue("endpoint", out var endpoint) && !string.IsNullOrWhiteSpace(endpoint))
+        var address = DriverConfigurationValueResolver.ResolveAddress(configuration);
+        var channel = DriverConfigurationValueResolver.ResolveChannel(configuration);
+
+        if (DriverConfigurationValueResolver.TryGetSetting(configuration, "endpoint", out var endpoint))
         {
             return endpoint;
         }
 
-        if (configuration.Settings.TryGetValue("endpointFormat", out var endpointFormat) && !string.IsNullOrWhiteSpace(endpointFormat))
+        if (DriverConfigurationValueResolver.TryGetSetting(configuration, "endpointFormat", out var endpointFormat))
         {
-            return endpointFormat
-                .Replace("{ip}", configuration.Ip ?? string.Empty)
-                .Replace("{port}", configuration.Port?.ToString() ?? string.Empty);
+            var port = DriverConfigurationValueResolver.ResolvePort(configuration);
+            var tokens = DriverConfigurationValueResolver.BuildDefaultTokens(configuration, address, channel, port);
+            return DriverConfigurationValueResolver.ApplyTemplate(endpointFormat, tokens);
         }
 
-        if (configuration.Port.HasValue && configuration.Port.Value > 0)
-        {
-            return $"{configuration.Ip}:{configuration.Port.Value}";
-        }
-
-        return configuration.Ip;
+        return address;
     }
 }

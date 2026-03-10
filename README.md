@@ -5,6 +5,7 @@ This repository contains a minimal ATE (Automated Test Equipment) proof of conce
 - an HTTP-hosted execution engine (`Ate.Engine`),
 - and a WPF client (`Ate.Ui`).
 
+
 Below is a **file-by-file tree** with each file's responsibility (high level only).
 
 ```text
@@ -17,7 +18,7 @@ ATE-SYSTEM-POC/
 │
 ├── Ate.Engine/
 │   ├── Ate.Engine.csproj                  # Engine executable project and package references (OWIN/WebApi/JSON).
-│   ├── engine-config.json                 # Configured device wrapper instances (type, id, IP, channel).
+│   ├── engine-config.json                 # Configured device wrapper instances (type, id, provider + settings).
 │   ├── README.md                          # Engine-local architecture notes.
 │   │
 │   ├── Host/
@@ -95,9 +96,9 @@ ATE-SYSTEM-POC/
 2. Place the provider assembly in `Ate.Engine/drivers` (auto-discovered at startup) or compile it in-engine.
 3. Configure `engine-config.json` for each instance using:
    - `wrapperProviderType` (provider name/type),
-   - `ip`, optional `port`, and optional `settings` (for custom constructor/endpoint formatting data).
+   - `settings` only (addressing/endpoint/provider-specific keys, e.g. `address`, `resourceName`, `port`, `channel`, `endpointFormat`).
 4. Start engine; UI fetches capabilities dynamically from `/api/capabilities`, so form fields update without UI code changes.
 
 Endpoint formatting helpers are built in:
 - `settings.endpoint` (full override), or
-- `settings.endpointFormat` with `{ip}` and `{port}` tokens (e.g., `"tcp-{ip}:{port}"`).
+- `settings.endpointFormat` with tokens (e.g., `{address}`, `{port}`, `{channel}`) and any custom settings key.
