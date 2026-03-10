@@ -139,3 +139,8 @@ Special constructor binding behavior for configured wrappers:
 
 To add a new device family, follow `ADD_NEW_DRIVER.md`.
 
+
+
+## Standalone client integration
+
+See `STANDALONE_ATECLIENT_GUIDE.md` for using `Ate.Engine` with a custom/non-WPF `AteClient`.
