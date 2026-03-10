@@ -12,8 +12,7 @@ public sealed class PsuDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddSingleton<IPsuHardwareDriverFactory, DemoPsuHardwareDriverFactory>();
-        services.AddTransient<IPsuHardwareDriver>(sp => sp.GetRequiredService<IPsuHardwareDriverFactory>().Create());
+        services.AddTransient<IPsuHardwareDriver, DemoPsuHardwareDriver>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("PSU", typeof(PsuDeviceWrapper)));
     }
 }

@@ -12,8 +12,7 @@ public sealed class DmmDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddSingleton<IDmmHardwareDriverFactory, DemoDmmHardwareDriverFactory>();
-        services.AddTransient<IDmmHardwareDriver>(sp => sp.GetRequiredService<IDmmHardwareDriverFactory>().Create());
+        services.AddTransient<IDmmHardwareDriver, DemoDmmHardwareDriver>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("DMM", typeof(DmmDeviceWrapper)));
     }
 }
