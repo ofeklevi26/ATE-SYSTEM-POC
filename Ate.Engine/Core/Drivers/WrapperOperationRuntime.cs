@@ -115,7 +115,8 @@ public static class WrapperOperationRuntime
             return type.Name;
         }
 
-        var genericName = type.Name[..type.Name.IndexOf('`')];
+        var tickIndex = type.Name.IndexOf('`');
+        var genericName = tickIndex >= 0 ? type.Name.Substring(0, tickIndex) : type.Name;
         var genericArgs = string.Join(", ", type.GetGenericArguments().Select(GetTypeDisplayName));
         return $"{genericName}<{genericArgs}>";
     }
