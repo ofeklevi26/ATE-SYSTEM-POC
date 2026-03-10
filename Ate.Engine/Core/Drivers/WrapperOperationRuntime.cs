@@ -70,9 +70,12 @@ public static class WrapperOperationRuntime
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
         var isRequired = false;
-        var defaultValue = parameter.HasDefaultValue
-            ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture) ?? GetImplicitDefaultValueString(parameter.ParameterType)
-            : GetImplicitDefaultValueString(parameter.ParameterType);
+        var explicitDefault = parameter.HasDefaultValue
+            ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
+            : null;
+        var defaultValue = explicitDefault
+            ?? GetParameterSpecificDefaultValueString(parameter)
+            ?? GetImplicitDefaultValueString(parameter.ParameterType);
 
         return new CommandParameterDefinition
         {
@@ -123,6 +126,17 @@ public static class WrapperOperationRuntime
         }).ToArray();
     }
 
+
+
+    private static string? GetParameterSpecificDefaultValueString(ParameterInfo parameter)
+    {
+        if ((parameter.Name ?? string.Empty).Equals("channel", StringComparison.OrdinalIgnoreCase))
+        {
+            return "1";
+        }
+
+        return null;
+    }
 
     private static string GetImplicitDefaultValueString(Type type)
     {
