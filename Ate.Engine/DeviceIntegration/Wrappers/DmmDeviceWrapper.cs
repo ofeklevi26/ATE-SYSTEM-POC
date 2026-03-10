@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,25 +32,10 @@ public sealed class DmmDeviceWrapper : IDeviceDriver
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-
         _hardware.Connect(Endpoint);
         try
         {
-            var channel = ReadInt(parameters, "channel", Channel);
-
-            if (operation.Equals("MeasureVoltage", StringComparison.OrdinalIgnoreCase))
-            {
-                var range = ReadDecimal(parameters, "range", 10.0m);
-                var value = _hardware.MeasureVoltage(Ip, channel, range);
-                return Task.FromResult<object>(new { Value = value.ToString("F3", CultureInfo.InvariantCulture), Unit = "V" });
-            }
-
-            if (operation.Equals("Identify", StringComparison.OrdinalIgnoreCase))
-            {
-                return Task.FromResult<object>(_hardware.Identify(Ip, channel));
-            }
-
-            throw new InvalidOperationException($"Unsupported DMM operation '{operation}'.");
+            return WrapperOperationRuntime.InvokeAsync(this, operation, parameters, token);
         }
         finally
         {
@@ -60,47 +43,18 @@ public sealed class DmmDeviceWrapper : IDeviceDriver
         }
     }
 
-    private static int ReadInt(IReadOnlyDictionary<string, object> parameters, string key, int fallback)
+    [DriverOperation]
+    public object MeasureVoltage(decimal range = 10.0m, int? channel = null)
     {
-        if (!parameters.TryGetValue(key, out var value) || value == null)
-        {
-            return fallback;
-        }
-
-        if (value is int i)
-        {
-            return i;
-        }
-
-        if (value is long l && l <= int.MaxValue && l >= int.MinValue)
-        {
-            return (int)l;
-        }
-
-        return int.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : fallback;
+        var selectedChannel = channel ?? Channel;
+        var value = _hardware.MeasureVoltage(Ip, selectedChannel, range);
+        return new { Value = value.ToString("F3", CultureInfo.InvariantCulture), Unit = "V" };
     }
 
-    private static decimal ReadDecimal(IReadOnlyDictionary<string, object> parameters, string key, decimal fallback)
+    [DriverOperation]
+    public object Identify(int? channel = null)
     {
-        if (!parameters.TryGetValue(key, out var value) || value == null)
-        {
-            return fallback;
-        }
-
-        if (value is decimal dec)
-        {
-            return dec;
-        }
-
-        if (value is double dbl)
-        {
-            return decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
-        }
-
-        return decimal.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : fallback;
+        var selectedChannel = channel ?? Channel;
+        return _hardware.Identify(Ip, selectedChannel);
     }
 }
