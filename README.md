@@ -43,7 +43,8 @@ ATE-SYSTEM-POC/
 │   │   │   └── OperateDeviceCommand.cs    # Concrete queued command that resolves a driver and executes an operation.
 │   │   └── Drivers/
 │   │       ├── IDeviceDriver.cs           # Engine-facing wrapper contract (device type/id + ExecuteAsync).
-│   │       ├── IConfiguredWrapperProvider.cs # Configured-wrapper provider extension seam (driver + metadata factory).
+│   │       ├── IConfiguredWrapperProvider.cs # Configured-wrapper provider seam (validate/create/describe).
+│   │       ├── IDriverModule.cs            # Driver-family DI module seam (register provider + hardware services).
 │   │       ├── DriverRegistry.cs          # Driver registration/lookup and capability-definition storage.
 │   │       └── DriverLoader.cs            # Optional plugin loader that discovers/registers drivers from assemblies.
 │   │
@@ -52,9 +53,11 @@ ATE-SYSTEM-POC/
 │   │   │   ├── IDmmHardwareDriver.cs      # Hardware-level DMM interface used by wrappers.
 │   │   │   └── IPsuHardwareDriver.cs      # Hardware-level PSU interface used by wrappers.
 │   │   ├── Wrappers/
-│   │   │   ├── ConnectionEndpointResolver.cs # Deprecated placeholder; endpoint logic now lives inside each provider.
 │   │   │   ├── DmmDeviceWrapper.cs        # DMM engine wrapper translating engine operations to DMM hardware calls.
 │   │   │   └── PsuDeviceWrapper.cs        # PSU engine wrapper translating engine operations to PSU hardware calls.
+│   │   ├── Modules/
+│   │   │   ├── DmmDriverModule.cs        # DMM module (registers DMM provider + hardware factory).
+│   │   │   └── PsuDriverModule.cs        # PSU module (registers PSU provider + hardware factory).
 │   │   ├── Providers/
 │   │   │   ├── DmmConfiguredWrapperProvider.cs # Built-in DMM configured-wrapper provider (instantiation + metadata).
 │   │   │   └── PsuConfiguredWrapperProvider.cs # Built-in PSU configured-wrapper provider (instantiation + metadata).

@@ -59,8 +59,9 @@ There is **no direct code dependency** from UI to Engine assemblies; integration
 
 ## 2.3 Runtime/plugin dependencies
 
-- Engine can load additional wrapper providers and device drivers from `Ate.Engine/drivers/*.dll` at startup.
-- Built-in providers are DMM + PSU providers; plugin providers can extend configured-wrapper creation.
+- Engine discovers `IDriverModule` implementations from built-in assembly and `Ate.Engine/drivers/*.dll` at startup.
+- Each module registers its own provider/hardware DI wiring; providers can still come from plugin assemblies.
+- Engine can also load raw `IDeviceDriver` implementations from `Ate.Engine/drivers/*.dll`.
 
 ---
 
@@ -71,10 +72,10 @@ There is **no direct code dependency** from UI to Engine assemblies; integration
 At startup, engine does the following in order:
 
 1. Creates core singletons: `ConsoleLogger`, `DriverRegistry`, `CommandInvoker`.
-2. Builds DI container and registers runtime services (`ILogger`, `DriverRegistry`, `CommandInvoker`) + provider/factory services.
-3. Loads `engine-config.json` into `EngineConfiguration`.
-4. Discovers configured wrapper providers (built-in + plugin DLLs).
-5. For each configured driver instance, asks provider to create wrapper+definition and registers it.
+2. Builds DI container with core runtime services (`ILogger`, `DriverRegistry`, `CommandInvoker`).
+3. Discovers `IDriverModule` implementations and lets each module register provider/factory services.
+4. Loads `engine-config.json` into `EngineConfiguration`.
+5. Resolves configured wrapper providers from DI, validates each config entry, then creates wrapper+definition and registers it.
 6. Creates `DriverLoader` and scans `drivers/*.dll` for raw `IDeviceDriver` implementations.
 7. Starts command worker (`invoker.Start()`).
 8. Starts OWIN self-host at `http://localhost:9000/` with `Startup` pipeline.
@@ -110,14 +111,11 @@ This gives a practical fallback hierarchy while still allowing explicit targetin
 
 ## 3.5 Wrapper/provider pattern
 
-- `IConfiguredWrapperProvider` converts config entries into concrete `IDeviceDriver` wrapper instances.
+- `IConfiguredWrapperProvider` now has explicit `Validate(...)`, `Create(...)`, and `Describe(...)` responsibilities.
+- `IDriverModule` is the DI extension seam that keeps driver family wiring (provider + hardware factory) out of host bootstrap.
 - Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]` via `WrapperOperationRuntime`.
 - Operation parameters are emitted with defaults for every field (explicit method defaults when present, otherwise parameter-specific or type-based defaults), with `channel` defaulting to `1` so UI forms are always pre-populated.
-- Built-in providers (`DmmConfiguredWrapperProvider`, `PsuConfiguredWrapperProvider`) use demo hardware drivers and connection endpoint resolution rules.
-- `ConnectionEndpointResolver` supports:
-  - `settings.endpoint` explicit value,
-  - `settings.endpointFormat` with `{ip}` / `{port}` tokens,
-  - fallback to `ip:port` or just `ip`.
+- Connection/endpoint parsing is provider-owned: each provider defines its own settings keys and endpoint formatting behavior.
 
 ## 3.6 UI wiring
 
@@ -236,8 +234,12 @@ ATE-SYSTEM-POC/
 │   │   │   Depends on: Task/CancellationToken + parameter dictionary.
 │   │   │
 │   │   ├── IConfiguredWrapperProvider.cs
-│   │   │   Role: Config-to-wrapper factory extension point.
+│   │   │   Role: Configured-wrapper contract (validate/create/describe).
 │   │   │   Depends on: Engine config models + logger + contracts metadata models.
+│   │   │
+│   │   ├── IDriverModule.cs
+│   │   │   Role: Module contract for registering driver-family DI wiring.
+│   │   │   Depends on: Microsoft.Extensions.DependencyInjection abstractions.
 │   │   │
 │   │   ├── DriverRegistry.cs
 │   │   │   Role: Stores and resolves driver registrations and capability definitions.
@@ -275,10 +277,6 @@ ATE-SYSTEM-POC/
 │   │   │       Depends on: IPsuHardwareDriver.
 │   │   │
 │   │   ├── Wrappers/
-│   │   │   ├── ConnectionEndpointResolver.cs
-│   │   │   │   Role: Builds endpoint string from config/settings conventions.
-│   │   │   │   Depends on: DriverInstanceConfiguration.
-│   │   │   │
 │   │   │   ├── DmmDeviceWrapper.cs
 │   │   │   │   Role: Declares DMM operations (`MeasureVoltage`, `Identify`) via `[DriverOperation]` methods and delegates dispatch to `WrapperOperationRuntime`.
 │   │   │   │   Depends on: IDeviceDriver + IDmmHardwareDriver + WrapperOperationRuntime.
@@ -287,14 +285,23 @@ ATE-SYSTEM-POC/
 │   │   │       Role: Declares PSU operations (`Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`) via `[DriverOperation]` methods and delegates dispatch to `WrapperOperationRuntime`.
 │   │   │       Depends on: IDeviceDriver + IPsuHardwareDriver + WrapperOperationRuntime.
 │   │   │
+│   │   ├── Modules/
+│   │   │   ├── DmmDriverModule.cs
+│   │   │   │   Role: Registers DMM provider + DMM hardware factory into DI.
+│   │   │   │   Depends on: IConfiguredWrapperProvider + IDmmHardwareDriverFactory.
+│   │   │   │
+│   │   │   └── PsuDriverModule.cs
+│   │   │       Role: Registers PSU provider + PSU hardware factory into DI.
+│   │   │       Depends on: IConfiguredWrapperProvider + IPsuHardwareDriverFactory.
+│   │   │
 │   │   └── Providers/
 │   │       ├── DmmConfiguredWrapperProvider.cs
-│   │       │   Role: Provider that builds configured DMM wrapper and auto-generates capability definition from wrapper methods.
-│   │       │   Depends on: DmmDeviceWrapper + DemoDmmHardwareDriver + endpoint resolver + WrapperOperationRuntime.
+│   │       │   Role: Provider that validates config, builds DMM wrapper, and auto-generates capability definition from wrapper methods.
+│   │       │   Depends on: DmmDeviceWrapper + IDmmHardwareDriverFactory + WrapperOperationRuntime.
 │   │       │
 │   │       └── PsuConfiguredWrapperProvider.cs
-│   │           Role: Provider that builds configured PSU wrapper and auto-generates capability definition from wrapper methods.
-│   │           Depends on: PsuDeviceWrapper + DemoPsuHardwareDriver + endpoint resolver + WrapperOperationRuntime.
+│   │           Role: Provider that validates config, builds PSU wrapper, and auto-generates capability definition from wrapper methods.
+│   │           Depends on: PsuDeviceWrapper + IPsuHardwareDriverFactory + WrapperOperationRuntime.
 │   │
 │   └── Common/
 │       ├── Infrastructure/
@@ -373,7 +380,7 @@ If you need to explain the app quickly:
 - Engine receives operations as generic commands, queues them, resolves wrappers, executes, and reports status.
 - Wrappers isolate operation semantics; hardware interfaces isolate vendor/device implementation details.
 - Providers bridge static JSON config into concrete wrappers + metadata.
-- Plugin DLLs can extend providers or register raw drivers without changing core engine code.
+- Plugin DLLs can add new `IDriverModule` implementations and/or raw `IDeviceDriver` types without changing core engine code.
 
 ---
 
