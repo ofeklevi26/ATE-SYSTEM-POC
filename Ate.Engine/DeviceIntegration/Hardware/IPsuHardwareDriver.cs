@@ -2,11 +2,11 @@ namespace Ate.Engine.Hardware;
 
 public interface IPsuHardwareDriver
 {
-    void Connect(string ip);
+    void Connect(string connectionTarget);
 
     void Disconnect();
 
-    string Identify(string ip, int channel);
+    string Identify(string address, int channel);
 
     void SetVoltage(int channel, decimal voltage, decimal currentLimit);
 

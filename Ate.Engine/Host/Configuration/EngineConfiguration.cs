@@ -34,8 +34,30 @@ public sealed class EngineConfiguration
         {
             Drivers = new List<DriverInstanceConfiguration>
             {
-                new DriverInstanceConfiguration { DeviceType = "DMM", DriverId = "default", Ip = "192.168.0.10", Channel = 1 },
-                new DriverInstanceConfiguration { DeviceType = "PSU", DriverId = "default", Ip = "192.168.0.20", Channel = 1 }
+                new DriverInstanceConfiguration
+                {
+                    DeviceType = "DMM",
+                    DriverId = "default",
+                    Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["address"] = "192.168.0.10",
+                        ["port"] = "5025",
+                        ["channel"] = "1",
+                        ["endpointFormat"] = "{address}:{port}"
+                    }
+                },
+                new DriverInstanceConfiguration
+                {
+                    DeviceType = "PSU",
+                    DriverId = "default",
+                    Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["address"] = "192.168.0.20",
+                        ["port"] = "5025",
+                        ["channel"] = "1",
+                        ["endpointFormat"] = "tcp-{address}:{port}"
+                    }
+                }
             }
         };
     }
@@ -46,12 +68,6 @@ public sealed class DriverInstanceConfiguration
     public string DeviceType { get; set; } = string.Empty;
 
     public string DriverId { get; set; } = "default";
-
-    public string Ip { get; set; } = string.Empty;
-
-    public int Channel { get; set; } = 1;
-
-    public int? Port { get; set; }
 
     public string? WrapperProviderType { get; set; }
 

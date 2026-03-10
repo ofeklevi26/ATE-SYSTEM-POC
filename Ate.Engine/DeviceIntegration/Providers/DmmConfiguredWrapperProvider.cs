@@ -1,3 +1,4 @@
+using System;
 using Ate.Engine.Configuration;
 using Ate.Engine.Drivers;
 using Ate.Engine.Hardware;
@@ -19,19 +20,47 @@ public sealed class DmmConfiguredWrapperProvider : IConfiguredWrapperProvider
 
     public bool CanCreate(DriverInstanceConfiguration configuration)
     {
-        return configuration.DeviceType.Equals("DMM", System.StringComparison.OrdinalIgnoreCase);
+        return configuration.DeviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public ConfiguredWrapperValidationResult Validate(DriverInstanceConfiguration configuration)
+    {
+        if (!DmmConnectionSettings.TryResolveAddress(configuration, out _))
+        {
+            return ConfiguredWrapperValidationResult.Fail("Missing address. Set settings.address or settings.resourceName.");
+        }
+
+        return ConfiguredWrapperValidationResult.Success();
     }
 
     public ConfiguredWrapperRegistration Create(DriverInstanceConfiguration configuration, ILogger logger)
     {
-        var endpoint = ConnectionEndpointResolver.Resolve(configuration);
-        var wrapper = new DmmDeviceWrapper(configuration.DriverId, configuration.Ip, configuration.Channel, endpoint, _hardwareDriverFactory.Create());
+        if (!DmmConnectionSettings.TryResolveAddress(configuration, out var address))
+        {
+            throw new InvalidOperationException("DMM provider requires settings.address or settings.resourceName.");
+        }
+
+        var channel = DmmConnectionSettings.ResolveChannel(configuration);
+        var endpoint = DmmConnectionSettings.BuildEndpoint(configuration, address, channel);
+
+        var wrapper = new DmmDeviceWrapper(configuration.DriverId, address, channel, endpoint, _hardwareDriverFactory.Create());
 
         return new ConfiguredWrapperRegistration
         {
             Driver = wrapper,
-            Definition = WrapperOperationRuntime.BuildDefinition(wrapper),
-            Description = $"{Name}::{configuration.DriverId} endpoint='{endpoint}' CH{configuration.Channel}"
+            Definition = WrapperOperationRuntime.BuildDefinition(wrapper)
         };
+    }
+
+    public string Describe(DriverInstanceConfiguration configuration)
+    {
+        if (!DmmConnectionSettings.TryResolveAddress(configuration, out var address))
+        {
+            return $"{Name}::{configuration.DriverId}";
+        }
+
+        var channel = DmmConnectionSettings.ResolveChannel(configuration);
+        var endpoint = DmmConnectionSettings.BuildEndpoint(configuration, address, channel);
+        return $"{Name}::{configuration.DriverId} endpoint='{endpoint}' CH{channel}";
     }
 }

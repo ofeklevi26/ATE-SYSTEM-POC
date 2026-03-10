@@ -11,10 +11,10 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
 {
     private readonly IPsuHardwareDriver _hardware;
 
-    public PsuDeviceWrapper(string driverId, string ip, int channel, string endpoint, IPsuHardwareDriver hardware)
+    public PsuDeviceWrapper(string driverId, string address, int channel, string endpoint, IPsuHardwareDriver hardware)
     {
         DriverId = driverId;
-        Ip = ip;
+        Address = address;
         Channel = channel;
         Endpoint = endpoint;
         _hardware = hardware;
@@ -24,7 +24,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
 
     public string DriverId { get; }
 
-    public string Ip { get; }
+    public string Address { get; }
 
     public int Channel { get; }
 
@@ -48,7 +48,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     public object Identify(int? channel = null)
     {
         var selectedChannel = channel ?? Channel;
-        return _hardware.Identify(Ip, selectedChannel);
+        return _hardware.Identify(Address, selectedChannel);
     }
 
     [DriverOperation]

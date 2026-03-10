@@ -2,11 +2,11 @@ namespace Ate.Engine.Hardware;
 
 public interface IDmmHardwareDriver
 {
-    void Connect(string ip);
+    void Connect(string connectionTarget);
 
     void Disconnect();
 
-    string Identify(string ip, int channel);
+    string Identify(string address, int channel);
 
-    decimal MeasureVoltage(string ip, int channel, decimal range);
+    decimal MeasureVoltage(string address, int channel, decimal range);
 }

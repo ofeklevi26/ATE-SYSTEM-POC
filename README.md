@@ -5,6 +5,7 @@ This repository contains a minimal ATE (Automated Test Equipment) proof of conce
 - an HTTP-hosted execution engine (`Ate.Engine`),
 - and a WPF client (`Ate.Ui`).
 
+
 Below is a **file-by-file tree** with each file's responsibility (high level only).
 
 ```text
@@ -17,7 +18,7 @@ ATE-SYSTEM-POC/
 │
 ├── Ate.Engine/
 │   ├── Ate.Engine.csproj                  # Engine executable project and package references (OWIN/WebApi/JSON).
-│   ├── engine-config.json                 # Configured device wrapper instances (type, id, IP, channel).
+│   ├── engine-config.json                 # Configured device wrapper instances (type, id, provider + settings).
 │   ├── README.md                          # Engine-local architecture notes.
 │   │
 │   ├── Host/
@@ -42,7 +43,8 @@ ATE-SYSTEM-POC/
 │   │   │   └── OperateDeviceCommand.cs    # Concrete queued command that resolves a driver and executes an operation.
 │   │   └── Drivers/
 │   │       ├── IDeviceDriver.cs           # Engine-facing wrapper contract (device type/id + ExecuteAsync).
-│   │       ├── IConfiguredWrapperProvider.cs # Configured-wrapper provider extension seam (driver + metadata factory).
+│   │       ├── IConfiguredWrapperProvider.cs # Configured-wrapper provider seam (validate/create/describe).
+│   │       ├── IDriverModule.cs            # Driver-family DI module seam (register provider + hardware services).
 │   │       ├── DriverRegistry.cs          # Driver registration/lookup and capability-definition storage.
 │   │       └── DriverLoader.cs            # Optional plugin loader that discovers/registers drivers from assemblies.
 │   │
@@ -51,12 +53,17 @@ ATE-SYSTEM-POC/
 │   │   │   ├── IDmmHardwareDriver.cs      # Hardware-level DMM interface used by wrappers.
 │   │   │   └── IPsuHardwareDriver.cs      # Hardware-level PSU interface used by wrappers.
 │   │   ├── Wrappers/
-│   │   │   ├── ConnectionEndpointResolver.cs # Resolves endpoint string from config/settings (`endpoint` / `endpointFormat`).
 │   │   │   ├── DmmDeviceWrapper.cs        # DMM engine wrapper translating engine operations to DMM hardware calls.
 │   │   │   └── PsuDeviceWrapper.cs        # PSU engine wrapper translating engine operations to PSU hardware calls.
+│   │   ├── Modules/
+│   │   │   ├── DmmDriverModule.cs        # DMM module (registers DMM provider + hardware factory).
+│   │   │   ├── PsuDriverModule.cs        # PSU module (registers PSU provider + hardware factory).
+│   │   │   └── README.md                 # Convention notes for adding new driver modules.
 │   │   ├── Providers/
 │   │   │   ├── DmmConfiguredWrapperProvider.cs # Built-in DMM configured-wrapper provider (instantiation + metadata).
-│   │   │   └── PsuConfiguredWrapperProvider.cs # Built-in PSU configured-wrapper provider (instantiation + metadata).
+│   │   │   ├── DmmConnectionSettings.cs         # DMM-specific connection/address/endpoint parsing helpers.
+│   │   │   ├── PsuConfiguredWrapperProvider.cs # Built-in PSU configured-wrapper provider (instantiation + metadata).
+│   │   │   └── PsuConnectionSettings.cs         # PSU-specific connection/address/endpoint parsing helpers.
 │   │   └── DemoDrivers/
 │   │       ├── DemoDmmHardwareDriver.cs   # Simulated DMM hardware implementation for local/testing use.
 │   │       └── DemoPsuHardwareDriver.cs   # Simulated PSU hardware implementation for local/testing use.
@@ -90,14 +97,12 @@ ATE-SYSTEM-POC/
 
 ## Wiring a new nugget wrapper (minimal-change flow)
 
-1. Implement a provider class that implements `IConfiguredWrapperProvider` and returns the wrapper instance (`IDeviceDriver`).
+1. Implement a provider class that implements `IConfiguredWrapperProvider`.
+   - Each provider owns its own connection/endpoint settings and parsing logic (no shared endpoint builder).
    - Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]`.
-2. Place the provider assembly in `Ate.Engine/drivers` (auto-discovered at startup) or compile it in-engine.
-3. Configure `engine-config.json` for each instance using:
+2. Implement an `IDriverModule` that registers provider + hardware factory into DI.
+3. Place the module/provider assembly in `Ate.Engine/drivers` (auto-discovered) or compile it in-engine.
+4. Configure `engine-config.json` for each instance using:
    - `wrapperProviderType` (provider name/type),
-   - `ip`, optional `port`, and optional `settings` (for custom constructor/endpoint formatting data).
-4. Start engine; UI fetches capabilities dynamically from `/api/capabilities`, so form fields update without UI code changes.
-
-Endpoint formatting helpers are built in:
-- `settings.endpoint` (full override), or
-- `settings.endpointFormat` with `{ip}` and `{port}` tokens (e.g., `"tcp-{ip}:{port}"`).
+   - provider-specific `settings` keys.
+5. Start engine; UI fetches capabilities dynamically from `/api/capabilities`, so form fields update without UI code changes.

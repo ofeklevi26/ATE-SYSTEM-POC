@@ -8,18 +8,18 @@ public sealed class DemoPsuHardwareDriver : IPsuHardwareDriver
     private decimal _currentLimit;
     private bool _outputEnabled;
 
-    public void Connect(string ip)
+    public void Connect(string connectionTarget)
     {
-        _ = ip;
+        _ = connectionTarget;
     }
 
     public void Disconnect()
     {
     }
 
-    public string Identify(string ip, int channel)
+    public string Identify(string address, int channel)
     {
-        return $"PSU-DEMO@{ip}:CH{channel}";
+        return $"PSU-DEMO@{address}:CH{channel}";
     }
 
     public void SetVoltage(int channel, decimal voltage, decimal currentLimit)
