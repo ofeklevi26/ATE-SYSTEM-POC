@@ -1,3 +1,4 @@
+using System;
 using Ate.Engine.Configuration;
 using Ate.Engine.Drivers;
 using Ate.Engine.Hardware;
@@ -19,19 +20,47 @@ public sealed class PsuConfiguredWrapperProvider : IConfiguredWrapperProvider
 
     public bool CanCreate(DriverInstanceConfiguration configuration)
     {
-        return configuration.DeviceType.Equals("PSU", System.StringComparison.OrdinalIgnoreCase);
+        return configuration.DeviceType.Equals("PSU", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public ConfiguredWrapperValidationResult Validate(DriverInstanceConfiguration configuration)
+    {
+        if (!PsuConnectionSettings.TryResolveAddress(configuration, out _))
+        {
+            return ConfiguredWrapperValidationResult.Fail("Missing address. Set settings.address or settings.resourceName.");
+        }
+
+        return ConfiguredWrapperValidationResult.Success();
     }
 
     public ConfiguredWrapperRegistration Create(DriverInstanceConfiguration configuration, ILogger logger)
     {
-        var endpoint = ConnectionEndpointResolver.Resolve(configuration);
-        var wrapper = new PsuDeviceWrapper(configuration.DriverId, configuration.Ip, configuration.Channel, endpoint, _hardwareDriverFactory.Create());
+        if (!PsuConnectionSettings.TryResolveAddress(configuration, out var address))
+        {
+            throw new InvalidOperationException("PSU provider requires settings.address or settings.resourceName.");
+        }
+
+        var channel = PsuConnectionSettings.ResolveChannel(configuration);
+        var endpoint = PsuConnectionSettings.BuildEndpoint(configuration, address, channel);
+
+        var wrapper = new PsuDeviceWrapper(configuration.DriverId, address, channel, endpoint, _hardwareDriverFactory.Create());
 
         return new ConfiguredWrapperRegistration
         {
             Driver = wrapper,
-            Definition = WrapperOperationRuntime.BuildDefinition(wrapper),
-            Description = $"{Name}::{configuration.DriverId} endpoint='{endpoint}' CH{configuration.Channel}"
+            Definition = WrapperOperationRuntime.BuildDefinition(wrapper)
         };
+    }
+
+    public string Describe(DriverInstanceConfiguration configuration)
+    {
+        if (!PsuConnectionSettings.TryResolveAddress(configuration, out var address))
+        {
+            return $"{Name}::{configuration.DriverId}";
+        }
+
+        var channel = PsuConnectionSettings.ResolveChannel(configuration);
+        var endpoint = PsuConnectionSettings.BuildEndpoint(configuration, address, channel);
+        return $"{Name}::{configuration.DriverId} endpoint='{endpoint}' CH{channel}";
     }
 }

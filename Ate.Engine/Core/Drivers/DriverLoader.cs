@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -38,15 +39,28 @@ public sealed class DriverLoader
             try
             {
                 var asm = Assembly.LoadFrom(dll);
-                foreach (var type in asm.GetTypes().Where(IsDriverType))
-                {
-                    RegisterType(type);
-                }
+                LoadFromAssembly(asm);
             }
             catch (Exception ex)
             {
                 _logger.Error($"Failed to load drivers from '{dll}'.", ex);
             }
+        }
+    }
+
+    public void LoadFromAssemblies(IEnumerable<Assembly> assemblies)
+    {
+        foreach (var assembly in assemblies.Distinct())
+        {
+            LoadFromAssembly(assembly);
+        }
+    }
+
+    private void LoadFromAssembly(Assembly assembly)
+    {
+        foreach (var type in assembly.GetTypes().Where(IsDriverType))
+        {
+            RegisterType(type);
         }
     }
 
