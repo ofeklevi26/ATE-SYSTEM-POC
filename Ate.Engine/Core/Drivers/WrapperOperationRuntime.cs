@@ -70,7 +70,7 @@ public static class WrapperOperationRuntime
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
         var isRequired = false;
-        var explicitDefault = parameter.HasDefaultValue
+        var explicitDefault = parameter.HasDefaultValue && parameter.DefaultValue != null
             ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
             : null;
         var defaultValue = explicitDefault
