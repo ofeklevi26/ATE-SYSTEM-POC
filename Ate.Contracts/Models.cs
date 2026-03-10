@@ -47,16 +47,28 @@ public sealed class CommandParameterDefinition
 {
     public string Name { get; set; } = string.Empty;
 
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
     public ParameterValueType Type { get; set; } = ParameterValueType.String;
 
     public bool IsRequired { get; set; }
 
     public string? DefaultValue { get; set; }
+
+    public string ClrType { get; set; } = string.Empty;
 }
 
 public sealed class CommandOperationDefinition
 {
     public string Name { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public string ReturnType { get; set; } = string.Empty;
 
     public List<CommandParameterDefinition> Parameters { get; set; } = new List<CommandParameterDefinition>();
 
@@ -68,6 +80,12 @@ public sealed class DeviceCommandDefinition
     public string DeviceType { get; set; } = string.Empty;
 
     public string DriverId { get; set; } = "default";
+
+    public string DriverClassName { get; set; } = string.Empty;
+
+    public string DriverDisplayName { get; set; } = string.Empty;
+
+    public string DriverDescription { get; set; } = string.Empty;
 
     public List<CommandParameterDefinition> DriverParameters { get; set; } = new List<CommandParameterDefinition>();
 

@@ -45,8 +45,19 @@ public sealed class ConfiguredWrapperRegistrar
             catch (Exception ex)
             {
                 _logger.Error($"Failed to create configured wrapper '{descriptor.WrapperType.FullName}' for driverId='{cfg.DriverId}'.", ex);
+
+                if (IsContractDriftException(ex))
+                {
+                    throw;
+                }
             }
         }
+    }
+
+    private static bool IsContractDriftException(Exception ex)
+    {
+        return ex is InvalidOperationException &&
+               (ex.Message ?? string.Empty).IndexOf("KnownCapabilitiesCatalog drift", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private ConfiguredWrapperDescriptor? ResolveDescriptor(DriverInstanceConfiguration configuration)
