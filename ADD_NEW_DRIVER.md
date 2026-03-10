@@ -1,31 +1,45 @@
-# Add a New Driver Family (Current Architecture)
+# Add a New Driver Family
 
-This guide explains the **minimal** integration flow in this repository.
+This is the current end-to-end process for extending the engine.
 
-## Goal
-Add a new device family with dynamic UI operations, without per-device provider classes.
+## Checklist
 
-You only need:
-1. a wrapper (`IDeviceDriver`) with `[DriverOperation]` methods,
-2. a module (`IDriverModule`) that registers hardware + descriptor,
-3. a config entry in `Ate.Engine/engine-config.json`.
+1. Add hardware abstraction (optional, but recommended).
+2. Add wrapper implementing `IDeviceDriver`.
+3. Add `[DriverOperation]` methods on wrapper.
+4. Add module implementing `IDriverModule`.
+5. Register `ConfiguredWrapperDescriptor` in module.
+6. Add `engine-config.json` entry.
+7. Build and verify capabilities + command execution.
 
 ---
 
-## 1) Create your wrapper
+## 1) Add hardware interface/implementation (optional)
 
-Create a wrapper class under `Ate.Engine/DeviceIntegration/Wrappers` (or plugin assembly) implementing `IDeviceDriver`.
+Create an interface under `Ate.Engine/DeviceIntegration/Hardware` and a concrete implementation under `DemoDrivers` (or real SDK adapter in plugin code).
 
-Key rules:
-- `DeviceType` should match your family key (for example `"LOAD"`).
-- Expose commands via methods marked `[DriverOperation]`.
-- Use constructor parameters you want sourced from `settings` (same names).
+Example:
 
-Example skeleton:
+```csharp
+public interface ILoadHardwareDriver
+{
+    string Identify(string address, int channel);
+    void Connect(string endpoint);
+    void Disconnect();
+}
+```
+
+---
+
+## 2) Add wrapper implementing `IDeviceDriver`
+
+Create `Ate.Engine/DeviceIntegration/Wrappers/LoadDeviceWrapper.cs`:
 
 ```csharp
 public sealed class LoadDeviceWrapper : IDeviceDriver
 {
+    private readonly ILoadHardwareDriver _hardware;
+
     public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadHardwareDriver hardware)
     {
         DriverId = driverId;
@@ -37,21 +51,43 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 
     public string DeviceType => "LOAD";
     public string DriverId { get; }
+    public string Address { get; }
+    public int Channel { get; }
+    public string Endpoint { get; }
+
+    public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        _hardware.Connect(Endpoint);
+        try
+        {
+            return WrapperOperationRuntime.InvokeAsync(this, operation, parameters, token);
+        }
+        finally
+        {
+            _hardware.Disconnect();
+        }
+    }
 
     [DriverOperation]
-    public object Identify() => _hardware.Identify(Address, Channel);
+    public object Identify(int? channel = null)
+    {
+        var selected = channel ?? Channel;
+        return _hardware.Identify(Address, selected);
+    }
 }
 ```
 
+Notes:
+- `DeviceType` should represent the family key.
+- Exposed operations must be public and marked `[DriverOperation]`.
+- Operation parameter metadata for UI is inferred from method signatures.
+
 ---
 
-## 2) Register your module
+## 3) Add module implementing `IDriverModule`
 
-Create/update an `IDriverModule` and register:
-- hardware services your wrapper constructor needs,
-- one `ConfiguredWrapperDescriptor("<DEVICE_TYPE>", typeof(<WRAPPER_TYPE>))`.
-
-Example:
+Create `Ate.Engine/DeviceIntegration/Modules/LoadDriverModule.cs`:
 
 ```csharp
 public sealed class LoadDriverModule : IDriverModule
@@ -66,11 +102,13 @@ public sealed class LoadDriverModule : IDriverModule
 }
 ```
 
+This makes the wrapper discoverable by the configured-wrapper registrar.
+
 ---
 
-## 3) Add config in `engine-config.json`
+## 4) Add config entry
 
-Add a driver entry:
+In `Ate.Engine/engine-config.json`:
 
 ```json
 {
@@ -79,35 +117,42 @@ Add a driver entry:
   "wrapperType": "LOAD",
   "settings": {
     "address": "192.168.0.50",
+    "port": "5025",
     "channel": "1",
-    "endpointFormat": "tcp://{address}:5025/ch/{channel}"
+    "endpointFormat": "tcp://{address}:{port}/ch/{channel}"
   }
 }
 ```
 
-### How constructor binding works
-`ConfiguredWrapperFactory` resolves wrapper constructor args in this order:
-1. `driverId` parameter from config `driverId`.
-2. exact `settings[parameterName]`.
-3. special `endpoint` or `target` via `endpoint`/`target` or `endpointFormat`/`targetFormat`.
-4. DI service by parameter type.
-5. default parameter value.
+### Constructor parameter binding order
 
-If no constructor can be resolved or multiple are ambiguous, startup fails fast with a clear error.
+`ConfiguredWrapperFactory` resolves each constructor argument using:
+1. `driverId` special case
+2. exact `settings` key by parameter name (case-insensitive)
+3. `endpoint` / `target` special formatted values (`endpointFormat` / `targetFormat`)
+4. DI resolution by parameter type
+5. default value
 
----
-
-## 4) Run and verify
-
-1. Start engine.
-2. Call `GET /api/capabilities` and confirm your `DeviceType` and operations appear.
-3. Execute operations via `POST /api/command`.
-
-UI operation forms are generated dynamically from wrapper `[DriverOperation]` methods.
+If no constructor can be resolved (or constructors are ambiguous), wrapper creation fails.
 
 ---
 
-## Notes
-- Legacy config key `wrapperProviderType` is still accepted and mapped to `wrapperType`.
-- Prefer one public constructor in wrappers to keep binding deterministic.
-- Keep constructor parameter names stable (`driverId`, `address`, `channel`, `endpoint`) for predictable config wiring.
+## 5) Verify
+
+1. Run engine.
+2. `GET /api/capabilities` and confirm new device/operations appear.
+3. `POST /api/command` for one operation.
+4. `GET /api/status` to confirm queue and loaded drivers.
+
+Example checks:
+
+```bash
+curl http://localhost:9000/api/capabilities
+curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"LOAD","operation":"Identify","parameters":{}}'
+curl http://localhost:9000/api/status
+```
+
+---
+
+Use `wrapperType` as the only wrapper selector key in configuration.
+

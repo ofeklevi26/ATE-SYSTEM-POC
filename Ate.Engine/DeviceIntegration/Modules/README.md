@@ -1,20 +1,42 @@
 # Driver Modules
 
-A driver family should be minimal:
-1. write a wrapper (`IDeviceDriver`) with `[DriverOperation]` methods,
-2. register any hardware services the wrapper needs,
-3. register one `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
+A module wires a device family into DI and exposes a wrapper type for config-based instantiation.
 
-At startup, wrappers are instantiated from `engine-config.json` settings + DI services.
-The UI capabilities are discovered directly from wrapper methods marked with `[DriverOperation]`.
+## Contract
 
-## Config convention
-Each configured driver entry supports:
-- `deviceType`
-- `driverId`
-- `wrapperType` (optional override; defaults to `deviceType` descriptor)
-- `settings` (constructor args such as `address`, `channel`, plus `endpoint`/`endpointFormat` or `target`/`targetFormat`)
+Implement `IDriverModule`:
+- `Name` is informational.
+- `Register(IServiceCollection services)` must register:
+  1. required hardware services for the wrapper constructor,
+  2. one `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
 
-## Why this is simpler
-No per-device configured-wrapper provider classes are required anymore.
-Adding a new device family is now wrapper + module (+ hardware adapter if needed).
+## Built-in module examples
+
+- `DmmDriverModule`
+  - registers `IDmmHardwareDriver -> DemoDmmHardwareDriver`
+  - registers descriptor `("DMM", typeof(DmmDeviceWrapper))`
+
+- `PsuDriverModule`
+  - registers `IPsuHardwareDriver -> DemoPsuHardwareDriver`
+  - registers descriptor `("PSU", typeof(PsuDeviceWrapper))`
+
+## How config resolves wrappers
+
+For each entry in `engine-config.json`:
+- if `wrapperType` is present, resolver matches by descriptor device type, wrapper class name, or full type name.
+- otherwise resolver falls back to matching descriptor `deviceType`.
+
+Then `ConfiguredWrapperFactory` constructs the wrapper from:
+1. config `driverId` → constructor parameter `driverId`
+2. `settings[parameterName]`
+3. formatted `endpoint` / `target` expansion
+4. DI services
+5. default constructor values
+
+## Conventions for reliable behavior
+
+- Prefer exactly one public wrapper constructor.
+- Keep constructor parameter names stable and descriptive (`driverId`, `address`, `channel`, `endpoint`).
+- Keep wrapper methods public and mark exposed operations with `[DriverOperation]`.
+- Avoid duplicate operation names (including `[DriverOperation(Name=...)]` aliases), because duplicates are rejected.
+

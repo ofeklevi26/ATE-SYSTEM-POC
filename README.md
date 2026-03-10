@@ -1,106 +1,141 @@
 # ATE-SYSTEM-POC
 
-This repository contains a minimal ATE (Automated Test Equipment) proof of concept with:
-- shared contracts (`Ate.Contracts`),
-- an HTTP-hosted execution engine (`Ate.Engine`),
-- and a WPF client (`Ate.Ui`).
+Proof-of-concept Automated Test Equipment (ATE) stack with three projects:
+- `Ate.Contracts`: shared DTOs used by both client and engine.
+- `Ate.Engine`: self-hosted HTTP execution engine with pluggable driver modules.
+- `Ate.Ui`: WPF client that renders command forms from runtime capabilities.
 
-
-Below is a **file-by-file tree** with each file's responsibility (high level only).
+## Repository tree (current)
 
 ```text
 ATE-SYSTEM-POC/
-├── ATE-SYSTEM-POC.sln                     # Solution entry that groups all projects.
+├── ATE-SYSTEM-POC.sln
+├── ADD_NEW_DRIVER.md
+├── PROJECT_STATE_REVIEW.md
+├── README.md
 │
 ├── Ate.Contracts/
-│   ├── Ate.Contracts.csproj               # Shared contracts library definition (target framework and build settings).
-│   └── Models.cs                          # DTOs and capability models shared between Engine and UI.
+│   ├── Ate.Contracts.csproj
+│   └── Models.cs
 │
 ├── Ate.Engine/
-│   ├── Ate.Engine.csproj                  # Engine executable project and package references (OWIN/WebApi/JSON).
-│   ├── engine-config.json                 # Configured device wrapper instances (type, id, wrapper selector + settings).
-│   ├── README.md                          # Engine-local architecture notes.
-│   │
-│   ├── Host/
-│   │   ├── Program.cs                     # Thin entry point that starts/stops EngineRuntime.
-│   │   ├── Startup.cs                     # OWIN/WebApi pipeline and route/json configuration.
-│   │   ├── EngineRuntime.cs               # Runtime composition/bootstrap (DI setup, wrapper/driver registration, web host lifecycle).
-│   │   ├── ServiceProviderDependencyResolver.cs # Web API dependency resolver adapter over IServiceProvider.
-│   │   └── Configuration/
-│   │       └── EngineConfiguration.cs     # Loads/parses engine-config.json into typed config models.
-│   │
+│   ├── Ate.Engine.csproj
+│   ├── engine-config.json
+│   ├── README.md
 │   ├── Api/
 │   │   └── Controllers/
-│   │       ├── CommandController.cs       # POST endpoint to enqueue device-operation commands.
-│   │       ├── StatusController.cs        # GET endpoint to read runtime status (state, queue, current command, errors).
-│   │       ├── EngineController.cs        # POST endpoints for control actions (pause/resume/clear/abort).
-│   │       └── CapabilitiesController.cs  # GET endpoint exposing available device capabilities/operations.
-│   │
+│   │       ├── CapabilitiesController.cs
+│   │       ├── CommandController.cs
+│   │       ├── EngineController.cs
+│   │       └── StatusController.cs
+│   ├── Common/
+│   │   ├── Infrastructure/
+│   │   │   ├── ConsoleLogger.cs
+│   │   │   └── ILogger.cs
+│   │   └── Serialization/
+│   │       └── ParameterValueNormalizer.cs
 │   ├── Core/
 │   │   ├── Commands/
-│   │   │   ├── IAteCommand.cs             # Command contract used by the execution queue.
-│   │   │   ├── CommandInvoker.cs          # Queue worker lifecycle (enqueue, run, pause, resume, stop, abort).
-│   │   │   └── OperateDeviceCommand.cs    # Concrete queued command that resolves a driver and executes an operation.
+│   │   │   ├── CommandInvoker.cs
+│   │   │   ├── IAteCommand.cs
+│   │   │   └── OperateDeviceCommand.cs
 │   │   └── Drivers/
-│   │       ├── IDeviceDriver.cs           # Engine-facing wrapper contract (device type/id + ExecuteAsync).
-│   │       ├── ConfiguredWrapperDescriptor.cs # Maps deviceType to wrapper type for config-driven instantiation.
-│   │       ├── ConfiguredWrapperFactory.cs # Reflective wrapper builder (constructor args from config + DI).
-│   │       ├── IDriverModule.cs            # Driver-family DI module seam (register wrapper descriptor + hardware services).
-│   │       ├── DriverRegistry.cs          # Driver registration/lookup and capability-definition storage.
-│   │       └── DriverLoader.cs            # Optional plugin loader that discovers/registers drivers from assemblies.
-│   │
+│   │       ├── ConfiguredWrapperDescriptor.cs
+│   │       ├── ConfiguredWrapperFactory.cs
+│   │       ├── ConfiguredWrapperRegistrar.cs
+│   │       ├── DriverLoader.cs
+│   │       ├── DriverOperationAttribute.cs
+│   │       ├── DriverRegistry.cs
+│   │       ├── IDeviceDriver.cs
+│   │       ├── IDriverModule.cs
+│   │       └── WrapperOperationRuntime.cs
 │   ├── DeviceIntegration/
+│   │   ├── DemoDrivers/
+│   │   │   ├── DemoDmmHardwareDriver.cs
+│   │   │   └── DemoPsuHardwareDriver.cs
 │   │   ├── Hardware/
-│   │   │   ├── IDmmHardwareDriver.cs      # Hardware-level DMM interface used by wrappers.
-│   │   │   └── IPsuHardwareDriver.cs      # Hardware-level PSU interface used by wrappers.
-│   │   ├── Wrappers/
-│   │   │   ├── DmmDeviceWrapper.cs        # DMM engine wrapper translating engine operations to DMM hardware calls.
-│   │   │   └── PsuDeviceWrapper.cs        # PSU engine wrapper translating engine operations to PSU hardware calls.
+│   │   │   ├── IDmmHardwareDriver.cs
+│   │   │   └── IPsuHardwareDriver.cs
 │   │   ├── Modules/
-│   │   │   ├── DmmDriverModule.cs        # DMM module (registers DMM wrapper descriptor + hardware factory).
-│   │   │   ├── PsuDriverModule.cs        # PSU module (registers PSU wrapper descriptor + hardware factory).
-│   │   │   └── README.md                 # Convention notes for adding new driver modules.
-│   │   └── DemoDrivers/
-│   │       ├── DemoDmmHardwareDriver.cs   # Simulated DMM hardware implementation for local/testing use.
-│   │       └── DemoPsuHardwareDriver.cs   # Simulated PSU hardware implementation for local/testing use.
-│   │
-│   └── Common/
-│       ├── Infrastructure/
-│       │   ├── ILogger.cs                 # Logging abstraction used across engine components.
-│       │   └── ConsoleLogger.cs           # Console-based logger implementation.
-│       └── Serialization/
-│           └── ParameterValueNormalizer.cs# Converts incoming JSON parameter values into runtime-friendly CLR values.
+│   │   │   ├── DmmDriverModule.cs
+│   │   │   ├── PsuDriverModule.cs
+│   │   │   └── README.md
+│   │   └── Wrappers/
+│   │       ├── DmmDeviceWrapper.cs
+│   │       └── PsuDeviceWrapper.cs
+│   └── Host/
+│       ├── EngineRuntime.cs
+│       ├── Program.cs
+│       ├── ServiceProviderDependencyResolver.cs
+│       ├── Startup.cs
+│       └── Configuration/
+│           └── EngineConfiguration.cs
 │
 └── Ate.Ui/
-    ├── Ate.Ui.csproj                      # WPF client project and UI dependencies.
-    ├── App.xaml                           # WPF app declaration/resources and startup window reference.
-    ├── App.xaml.cs                        # WPF application code-behind entry class.
-    ├── MainWindow.xaml                    # Main client UI layout (device/operation/parameters/controls/status).
-    ├── MainWindow.xaml.cs                 # Main window code-behind that sets ViewModel as DataContext.
+    ├── App.xaml
+    ├── App.xaml.cs
+    ├── Ate.Ui.csproj
+    ├── MainWindow.xaml
+    ├── MainWindow.xaml.cs
     ├── Services/
-    │   └── AteClient.cs                   # HTTP client wrapper for calling engine API endpoints.
+    │   └── AteClient.cs
     └── ViewModels/
-        └── MainViewModel.cs               # UI state/commands: load capabilities, build params, send commands, poll status.
+        └── MainViewModel.cs
 ```
 
-## Architectural intent (high-level)
+## Runtime behavior
 
-- `Ate.Contracts` stays implementation-agnostic and only carries shared transport models.
-- `Ate.Engine` isolates runtime core from device-integration concerns and keeps wrappers separate from hardware implementations.
-- `Ate.Engine` now uses constructor injection for API controllers via a service-provider-based dependency resolver, removing global host context state.
-- `Ate.Ui` remains a thin client that drives the engine exclusively through HTTP contracts.
+1. Engine starts, discovers `IDriverModule` types (built-in + optional plugin assemblies in `drivers/`).
+2. Modules register hardware services and `ConfiguredWrapperDescriptor` mappings.
+3. Engine loads `engine-config.json` and uses `ConfiguredWrapperRegistrar` + `ConfiguredWrapperFactory` to instantiate wrappers.
+4. `WrapperOperationRuntime` reflects `[DriverOperation]` methods to build capabilities metadata.
+5. UI calls `GET /api/capabilities`, renders dynamic operation parameter forms, and sends commands to `POST /api/command`.
+6. `CommandInvoker` executes queued commands, while status/control endpoints expose and manage queue state.
 
+## HTTP API summary
 
-## Wiring a new wrapper (minimal-change flow)
+- `GET /api/capabilities` → available devices + operations + parameters.
+- `POST /api/command` → enqueue command.
+- `GET /api/status` → engine state, queue depth, current command, last error, loaded drivers.
+- `POST /api/engine/pause`
+- `POST /api/engine/resume`
+- `POST /api/engine/clear`
+- `POST /api/engine/abort-current`
 
-1. Implement an `IDeviceDriver` wrapper with `[DriverOperation]` methods.
-2. In your `IDriverModule`, register:
-   - hardware dependencies (SDK adapter/factory),
-   - one `ConfiguredWrapperDescriptor("<DEVICE_TYPE>", typeof(<WrapperType>))`.
-3. Configure `engine-config.json` for each instance:
-   - `deviceType`, `driverId`, optional `wrapperType`,
-   - `settings` keys matching wrapper constructor parameter names.
-4. Start engine; wrapper capabilities are auto-discovered and UI fields are loaded dynamically from `/api/capabilities`.
+Engine base address is `http://localhost:9000/`.
 
-See `ADD_NEW_DRIVER.md` for a step-by-step implementation guide and constructor-binding rules.
+## Quick start
+
+### 1) Build
+```bash
+dotnet build ATE-SYSTEM-POC.sln
+```
+
+### 2) Run engine
+```bash
+dotnet run --project Ate.Engine/Ate.Engine.csproj
+```
+
+### 3) Run UI (separate shell)
+```bash
+dotnet run --project Ate.Ui/Ate.Ui.csproj
+```
+
+## Configuration notes (`Ate.Engine/engine-config.json`)
+
+Each driver entry uses:
+- `deviceType` (logical family, e.g., `DMM`)
+- `driverId` (instance selector)
+- `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
+- `settings` (string dictionary used for wrapper constructor binding)
+
+Special constructor binding behavior for configured wrappers:
+- `driverId` constructor parameter is populated from config `driverId`.
+- Constructor parameter names are matched against `settings` keys (case-insensitive).
+- `endpoint` and `target` constructor parameters support direct keys or `endpointFormat` / `targetFormat` templating.
+- Remaining parameters may come from DI or default constructor values.
+
+## Extensibility
+
+To add a new device family, follow `ADD_NEW_DRIVER.md`.
 
