@@ -5,8 +5,8 @@ This review reflects the repository as it exists now.
 ## 1) Current architecture snapshot
 
 ### Projects
-- **Ate.Contracts**: request/response DTOs, status model, and dynamic capability metadata models.
-- **Ate.Engine**: runtime host, API controllers, command queue, driver registration, wrapper reflection.
+- **Ate.Contracts**: request/response DTOs, status model, and capability contract catalog for known families (`KnownCapabilitiesCatalog`).
+- **Ate.Engine**: runtime host, API controllers, command queue, driver registration, contract-first capability resolution with reflection fallback.
 - **Ate.Ui**: WPF MVVM client that consumes capabilities and submits commands.
 
 ### Execution flow
@@ -60,11 +60,10 @@ Formatting notes:
 
 ## 5) Capability generation behavior
 
-`WrapperOperationRuntime.BuildDefinition`:
-- reflects public instance methods with `[DriverOperation]`,
-- derives operation names from attribute override or method name,
-- infers parameter types (`String`, `Integer`, `Decimal`, `Boolean`),
-- applies defaults from method default values or implicit type defaults.
+`WrapperOperationRuntime.BuildDefinition` now follows a contract-first flow:
+- for known built-in families (`DMM`, `PSU`), returns explicit definitions from `Ate.Contracts.KnownCapabilitiesCatalog`,
+- for unknown/plugin families, reflects public instance methods with `[DriverOperation]`,
+- reflection fallback infers types (`String`, `Integer`, `Decimal`, `Boolean`) and required-ness from method defaults.
 
 Duplicate operation names on a wrapper type throw an error.
 
@@ -106,7 +105,7 @@ Cancellation and command failures are logged and surfaced in `LastError`.
 
 - Queue is in-memory only (no persistence).
 - Wrapper operation invocation currently expects synchronous wrapper operation methods.
-- `BuildParameterDefinition` marks parameters as not required by default and relies on defaults/implicit values.
+- For reflection fallback, required parameters are those without default values, and missing required values now fail fast at invocation time.
 - Plugin discovery is filesystem-based (`drivers/*.dll`) with best-effort load.
 
 ## 10) Recommended next steps
@@ -115,5 +114,5 @@ Cancellation and command failures are logged and surfaced in `LastError`.
 2. Add integration tests for capability generation and command execution.
 3. Add structured logging context (device type, driver id, operation, command id).
 4. Add optional persistence/replay model for queued commands if durability is required.
-5. Consider explicit required-parameter semantics in capability metadata for stricter UI validation.
+5. Keep `KnownCapabilitiesCatalog` synchronized whenever built-in wrapper method signatures change.
 

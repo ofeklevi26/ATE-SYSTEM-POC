@@ -81,7 +81,21 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 Notes:
 - `DeviceType` should represent the family key.
 - Exposed operations must be public and marked `[DriverOperation]`.
-- Operation parameter metadata for UI is inferred from method signatures.
+- For explicit/non-UI-friendly contracts, add a matching entry in `Ate.Contracts/KnownCapabilitiesCatalog.cs`; otherwise the engine will use reflection fallback for this family.
+
+
+---
+
+## 2.5) (Recommended) Add an explicit contract entry
+
+For stable client integration, add your family to `Ate.Contracts/KnownCapabilitiesCatalog.cs` so operation/parameter schemas are explicit and reusable outside the WPF UI.
+
+At minimum, define:
+- `DeviceType`, `DriverId`, `DriverDisplayName`, `DriverDescription`
+- all operation names and parameter names exactly as wrapper method signatures
+- `ParameterValueType`, `IsRequired`, and `DefaultValue` values that match runtime behavior
+
+If omitted, `/api/capabilities` still works via reflection fallback, but the schema is not centrally versioned in contracts.
 
 ---
 
