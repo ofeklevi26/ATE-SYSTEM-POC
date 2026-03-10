@@ -60,8 +60,7 @@ public sealed class LoadDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddSingleton<ILoadHardwareDriverFactory, DemoLoadHardwareDriverFactory>();
-        services.AddTransient<ILoadHardwareDriver>(sp => sp.GetRequiredService<ILoadHardwareDriverFactory>().Create());
+        services.AddTransient<ILoadHardwareDriver, DemoLoadHardwareDriver>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("LOAD", typeof(LoadDeviceWrapper)));
     }
 }
