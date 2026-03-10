@@ -12,7 +12,7 @@ public sealed class PsuDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddSingleton<IPsuHardwareDriverFactory, DemoPsuHardwareDriverFactory>();
+        services.AddSingleton<IPsuHardwareDriverFactory, SimulatedVendorPsuHardwareDriverFactory>();
         services.AddSingleton<IConfiguredWrapperProvider, PsuConfiguredWrapperProvider>();
     }
 }
