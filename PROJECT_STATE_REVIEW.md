@@ -110,7 +110,8 @@ This gives a practical fallback hierarchy while still allowing explicit targetin
 
 ## 3.5 Wrapper/provider pattern
 
-- `IConfiguredWrapperProvider` converts config entries into concrete `IDeviceDriver` wrapper instances plus UI command metadata (`DeviceCommandDefinition`).
+- `IConfiguredWrapperProvider` converts config entries into concrete `IDeviceDriver` wrapper instances.
+- Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]` via `WrapperOperationRuntime`.
 - Built-in providers (`DmmConfiguredWrapperProvider`, `PsuConfiguredWrapperProvider`) use demo hardware drivers and connection endpoint resolution rules.
 - `ConnectionEndpointResolver` supports:
   - `settings.endpoint` explicit value,
@@ -241,6 +242,14 @@ ATE-SYSTEM-POC/
 │   │   │   Role: Stores and resolves driver registrations and capability definitions.
 │   │   │   Depends on: ConcurrentDictionary + IDeviceDriver + DeviceCommandDefinition.
 │   │   │
+│   │   ├── DriverOperationAttribute.cs
+│   │   │   Role: Marks public wrapper methods as discoverable command operations.
+│   │   │   Depends on: System.Attribute.
+│   │   │
+│   │   ├── WrapperOperationRuntime.cs
+│   │   │   Role: Discovers wrapper operations, builds capability metadata, binds parameters, and invokes methods.
+│   │   │   Depends on: Reflection + Ate.Contracts metadata models + culture-aware conversion helpers.
+│   │   │
 │   │   └── DriverLoader.cs
 │   │       Role: Reflection-based discovery of IDeviceDriver implementations in DLLs.
 │   │       Depends on: file system + reflection + DriverRegistry + ILogger.
@@ -270,22 +279,21 @@ ATE-SYSTEM-POC/
 │   │   │   │   Depends on: DriverInstanceConfiguration.
 │   │   │   │
 │   │   │   ├── DmmDeviceWrapper.cs
-│   │   │   │   Role: Translates generic operations to DMM hardware calls (`MeasureVoltage`, `Identify`).
-│   │   │   │   Depends on: IDeviceDriver + IDmmHardwareDriver + numeric parsing helpers.
+│   │   │   │   Role: Declares DMM operations (`MeasureVoltage`, `Identify`) via `[DriverOperation]` methods and delegates dispatch to `WrapperOperationRuntime`.
+│   │   │   │   Depends on: IDeviceDriver + IDmmHardwareDriver + WrapperOperationRuntime.
 │   │   │   │
 │   │   │   └── PsuDeviceWrapper.cs
-│   │   │       Role: Translates generic operations to PSU hardware calls
-│   │   │             (`Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`).
-│   │   │       Depends on: IDeviceDriver + IPsuHardwareDriver + parsing helpers.
+│   │   │       Role: Declares PSU operations (`Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`) via `[DriverOperation]` methods and delegates dispatch to `WrapperOperationRuntime`.
+│   │   │       Depends on: IDeviceDriver + IPsuHardwareDriver + WrapperOperationRuntime.
 │   │   │
 │   │   └── Providers/
 │   │       ├── DmmConfiguredWrapperProvider.cs
-│   │       │   Role: Provider that builds configured DMM wrapper + DMM capability definition.
-│   │       │   Depends on: DmmDeviceWrapper + DemoDmmHardwareDriver + endpoint resolver + contracts metadata.
+│   │       │   Role: Provider that builds configured DMM wrapper and auto-generates capability definition from wrapper methods.
+│   │       │   Depends on: DmmDeviceWrapper + DemoDmmHardwareDriver + endpoint resolver + WrapperOperationRuntime.
 │   │       │
 │   │       └── PsuConfiguredWrapperProvider.cs
-│   │           Role: Provider that builds configured PSU wrapper + PSU capability definition.
-│   │           Depends on: PsuDeviceWrapper + DemoPsuHardwareDriver + endpoint resolver + contracts metadata.
+│   │           Role: Provider that builds configured PSU wrapper and auto-generates capability definition from wrapper methods.
+│   │           Depends on: PsuDeviceWrapper + DemoPsuHardwareDriver + endpoint resolver + WrapperOperationRuntime.
 │   │
 │   └── Common/
 │       ├── Infrastructure/

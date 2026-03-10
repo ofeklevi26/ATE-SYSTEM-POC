@@ -43,8 +43,15 @@ public static class WrapperOperationRuntime
         }
 
         var args = BindParameters(method, parameters);
-        var result = method.Invoke(wrapper, args);
-        return Task.FromResult(result ?? string.Empty);
+        try
+        {
+            var result = method.Invoke(wrapper, args);
+            return Task.FromResult(result ?? string.Empty);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
     }
 
     private static CommandOperationDefinition BuildOperationDefinition(string operationName, MethodInfo method)
@@ -177,10 +184,19 @@ public static class WrapperOperationRuntime
                     Method = m,
                     Attribute = m.GetCustomAttribute<DriverOperationAttribute>()
                 })
-                .Where(x => x.Attribute != null)
+                .Where(x => x.Attribute != null && !x.Method.IsSpecialName)
+                .GroupBy(x => x.Attribute?.Name ?? x.Method.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
-                    x => x.Attribute?.Name ?? x.Method.Name,
-                    x => x.Method,
+                    g => g.Key,
+                    g =>
+                    {
+                        if (g.Count() > 1)
+                        {
+                            throw new InvalidOperationException($"Duplicate [DriverOperation] name '{g.Key}' on wrapper type '{type.FullName}'.");
+                        }
+
+                        return g.Single().Method;
+                    },
                     StringComparer.OrdinalIgnoreCase);
 
             return methods;
