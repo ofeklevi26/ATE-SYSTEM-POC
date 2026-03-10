@@ -17,6 +17,11 @@ public static class WrapperOperationRuntime
 
     public static DeviceCommandDefinition BuildDefinition(IDeviceDriver driver, IEnumerable<CommandParameterDefinition>? driverParameters = null)
     {
+        if (KnownCapabilitiesCatalog.TryCreateDefinition(driver.DeviceType, driver.DriverId, out var knownDefinition))
+        {
+            return knownDefinition;
+        }
+
         var type = driver.GetType();
         var operations = GetOperationMethods(type)
             .Select(kvp => BuildOperationDefinition(kvp.Key, kvp.Value))
@@ -27,6 +32,9 @@ public static class WrapperOperationRuntime
         {
             DeviceType = driver.DeviceType,
             DriverId = driver.DriverId,
+            DriverClassName = type.Name,
+            DriverDisplayName = driver.DeviceType,
+            DriverDescription = string.Empty,
             DriverParameters = driverParameters?.ToList() ?? new List<CommandParameterDefinition>(),
             Operations = operations
         };
@@ -59,17 +67,19 @@ public static class WrapperOperationRuntime
         var parameters = method.GetParameters()
             .Select(BuildParameterDefinition)
             .ToList();
-
         return new CommandOperationDefinition
         {
             Name = operationName,
+            DisplayName = operationName,
+            Description = string.Empty,
+            ReturnType = GetTypeDisplayName(method.ReturnType),
             Parameters = parameters
         };
     }
 
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
-        var isRequired = false;
+        var isRequired = !parameter.HasDefaultValue;
         var explicitDefault = parameter.HasDefaultValue && parameter.DefaultValue != null
             ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
             : null;
@@ -77,13 +87,37 @@ public static class WrapperOperationRuntime
             ?? GetParameterSpecificDefaultValueString(parameter)
             ?? GetImplicitDefaultValueString(parameter.ParameterType);
 
+        var name = parameter.Name ?? string.Empty;
+
         return new CommandParameterDefinition
         {
-            Name = parameter.Name ?? string.Empty,
+            Name = name,
+            DisplayName = name,
+            Description = string.Empty,
             Type = MapParameterType(parameter.ParameterType),
             IsRequired = isRequired,
-            DefaultValue = defaultValue
+            DefaultValue = defaultValue,
+            ClrType = GetTypeDisplayName(parameter.ParameterType)
         };
+    }
+
+
+    private static string GetTypeDisplayName(Type type)
+    {
+        var effectiveType = Nullable.GetUnderlyingType(type);
+        if (effectiveType != null)
+        {
+            return $"{GetTypeDisplayName(effectiveType)}?";
+        }
+
+        if (!type.IsGenericType)
+        {
+            return type.Name;
+        }
+
+        var genericName = type.Name[..type.Name.IndexOf('`')];
+        var genericArgs = string.Join(", ", type.GetGenericArguments().Select(GetTypeDisplayName));
+        return $"{genericName}<{genericArgs}>";
     }
 
     private static ParameterValueType MapParameterType(Type type)
@@ -122,7 +156,7 @@ public static class WrapperOperationRuntime
                 return param.DefaultValue;
             }
 
-            return GetImplicitDefaultValue(param.ParameterType);
+            throw new InvalidOperationException($"Missing required parameter '{param.Name}' for operation '{method.Name}'.");
         }).ToArray();
     }
 
@@ -158,48 +192,6 @@ public static class WrapperOperationRuntime
         }
 
         return string.Empty;
-    }
-
-    private static object? GetImplicitDefaultValue(Type type)
-    {
-        var effectiveType = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (effectiveType == typeof(bool))
-        {
-            return false;
-        }
-
-        if (effectiveType == typeof(int))
-        {
-            return 0;
-        }
-
-        if (effectiveType == typeof(long))
-        {
-            return 0L;
-        }
-
-        if (effectiveType == typeof(decimal))
-        {
-            return 0m;
-        }
-
-        if (effectiveType == typeof(double))
-        {
-            return 0d;
-        }
-
-        if (effectiveType == typeof(float))
-        {
-            return 0f;
-        }
-
-        if (effectiveType == typeof(string))
-        {
-            return string.Empty;
-        }
-
-        return effectiveType.IsValueType ? Activator.CreateInstance(effectiveType) : null;
     }
 
     private static object? ConvertValue(object value, Type targetType)
