@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using Ate.Contracts;
 using Ate.Engine.Configuration;
 using Ate.Engine.Drivers;
 using Ate.Engine.Hardware;
@@ -32,39 +30,8 @@ public sealed class DmmConfiguredWrapperProvider : IConfiguredWrapperProvider
         return new ConfiguredWrapperRegistration
         {
             Driver = wrapper,
-            Definition = BuildDefinition(configuration),
+            Definition = WrapperOperationRuntime.BuildDefinition(wrapper),
             Description = $"{Name}::{configuration.DriverId} endpoint='{endpoint}' CH{configuration.Channel}"
-        };
-    }
-
-    private static DeviceCommandDefinition BuildDefinition(DriverInstanceConfiguration cfg)
-    {
-        return new DeviceCommandDefinition
-        {
-            DeviceType = cfg.DeviceType,
-            DriverId = cfg.DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition
-                {
-                    Name = "channel",
-                    Type = ParameterValueType.Integer,
-                    IsRequired = true,
-                    DefaultValue = cfg.Channel.ToString()
-                }
-            },
-            Operations = new List<CommandOperationDefinition>
-            {
-                new CommandOperationDefinition
-                {
-                    Name = "MeasureVoltage",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
-                    }
-                },
-                new CommandOperationDefinition { Name = "Identify" }
-            }
         };
     }
 }

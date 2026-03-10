@@ -90,9 +90,8 @@ ATE-SYSTEM-POC/
 
 ## Wiring a new nugget wrapper (minimal-change flow)
 
-1. Implement a provider class that implements `IConfiguredWrapperProvider` and returns:
-   - the wrapper instance (`IDeviceDriver`),
-   - its `DeviceCommandDefinition` metadata.
+1. Implement a provider class that implements `IConfiguredWrapperProvider` and returns the wrapper instance (`IDeviceDriver`).
+   - Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]`.
 2. Place the provider assembly in `Ate.Engine/drivers` (auto-discovered at startup) or compile it in-engine.
 3. Configure `engine-config.json` for each instance using:
    - `wrapperProviderType` (provider name/type),
