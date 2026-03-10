@@ -122,3 +122,28 @@ Both modules now register descriptors directly and do not register provider clas
 5. Add `engine-config.json` entry with settings matching wrapper constructor parameter names.
 
 No provider class required.
+
+
+---
+
+## 8) Recommended next revisions (to reduce long-term maintenance cost)
+
+1. **Introduce a tiny test project for wrapper bootstrapping**
+   - Add focused tests for `ConfiguredWrapperFactory` constructor binding and type conversion.
+   - Add one integration test for `EngineRuntime` config-to-registration flow.
+
+2. **Split runtime composition into dedicated services**
+   - Extract configured-wrapper registration from `EngineRuntime` into a dedicated `ConfiguredWrapperRegistrar` service.
+   - Keep `EngineRuntime` as thin orchestration only.
+
+3. **Standardize wrapper constructor conventions**
+   - Document recommended constructor parameter names (`driverId`, `address`, `channel`, `endpoint`).
+   - Avoid multiple public constructors in wrappers to prevent ambiguity.
+
+4. **Optional plugin template package**
+   - Provide a small reference driver module template in a separate project/repo.
+   - New family then becomes: copy template, implement wrapper methods, update config.
+
+5. **Keep config-only responsibilities in config**
+   - Continue avoiding per-family provider classes unless a device truly needs highly custom boot logic.
+   - For unusual cases, support optional custom binder extension rather than reintroducing full provider complexity.

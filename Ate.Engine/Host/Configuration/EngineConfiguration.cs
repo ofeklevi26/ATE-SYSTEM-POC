@@ -84,5 +84,10 @@ public sealed class DriverInstanceConfiguration
         }
     }
 
+    public bool ShouldSerializeLegacyWrapperProviderType()
+    {
+        return false;
+    }
+
     public Dictionary<string, string> Settings { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }

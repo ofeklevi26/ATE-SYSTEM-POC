@@ -11,11 +11,7 @@ internal static class ConfiguredWrapperFactory
 {
     public static IDeviceDriver Create(DriverInstanceConfiguration configuration, Type wrapperType, IServiceProvider services)
     {
-        var ctor = wrapperType.GetConstructors()
-            .OrderByDescending(c => c.GetParameters().Length)
-            .FirstOrDefault()
-            ?? throw new InvalidOperationException($"Wrapper '{wrapperType.FullName}' has no public constructor.");
-
+        var ctor = SelectConstructor(configuration, wrapperType, services);
         var args = ctor.GetParameters()
             .Select(p => ResolveParameterValue(configuration, p, services))
             .ToArray();
@@ -26,6 +22,65 @@ internal static class ConfiguredWrapperFactory
         }
 
         return wrapper;
+    }
+
+    private static ConstructorInfo SelectConstructor(DriverInstanceConfiguration configuration, Type wrapperType, IServiceProvider services)
+    {
+        var constructors = wrapperType.GetConstructors();
+        if (constructors.Length == 0)
+        {
+            throw new InvalidOperationException($"Wrapper '{wrapperType.FullName}' has no public constructor.");
+        }
+
+        if (constructors.Length == 1)
+        {
+            return constructors[0];
+        }
+
+        var resolvable = constructors
+            .Where(c => c.GetParameters().All(p => CanResolveParameter(configuration, p, services)))
+            .OrderByDescending(c => c.GetParameters().Length)
+            .ToList();
+
+        if (resolvable.Count == 0)
+        {
+            throw new InvalidOperationException($"No resolvable constructor found for wrapper '{wrapperType.FullName}'.");
+        }
+
+        if (resolvable.Count > 1 && resolvable[0].GetParameters().Length == resolvable[1].GetParameters().Length)
+        {
+            throw new InvalidOperationException(
+                $"Ambiguous constructors for wrapper '{wrapperType.FullName}'. Keep one public constructor or ensure only one best match.");
+        }
+
+        return resolvable[0];
+    }
+
+    private static bool CanResolveParameter(DriverInstanceConfiguration config, ParameterInfo parameter, IServiceProvider services)
+    {
+        if (parameter.Name != null && parameter.Name.Equals("driverId", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (parameter.Name != null && config.Settings.ContainsKey(parameter.Name))
+        {
+            return true;
+        }
+
+        if (parameter.Name != null &&
+            (parameter.Name.Equals("endpoint", StringComparison.OrdinalIgnoreCase) ||
+             parameter.Name.Equals("target", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        if (services.GetService(parameter.ParameterType) != null)
+        {
+            return true;
+        }
+
+        return parameter.HasDefaultValue;
     }
 
     private static object? ResolveParameterValue(DriverInstanceConfiguration config, ParameterInfo parameter, IServiceProvider services)
