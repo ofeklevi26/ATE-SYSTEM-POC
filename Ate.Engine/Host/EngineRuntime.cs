@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Ate.Engine.Commands;
 using Ate.Engine.Configuration;
 using Ate.Engine.Controllers;
@@ -45,11 +44,7 @@ public sealed class EngineRuntime : IDisposable
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
 
-        var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
-        RegisterConfiguredDriverWrappers(config, registry, logger, driversPath, serviceProvider);
-
-        var loader = new DriverLoader(registry, logger);
-        loader.LoadFromDirectory(driversPath);
+        RegisterConfiguredDriverWrappers(config, registry, logger, serviceProvider);
 
         invoker.Start();
 
@@ -91,10 +86,9 @@ public sealed class EngineRuntime : IDisposable
         EngineConfiguration config,
         DriverRegistry registry,
         ILogger logger,
-        string driversPath,
         IServiceProvider serviceProvider)
     {
-        var providers = DiscoverConfiguredWrapperProviders(logger, driversPath, serviceProvider);
+        var providers = DiscoverConfiguredWrapperProviders(logger, serviceProvider);
 
         foreach (var cfg in config.Drivers)
         {
@@ -113,35 +107,11 @@ public sealed class EngineRuntime : IDisposable
 
     private static IReadOnlyList<IConfiguredWrapperProvider> DiscoverConfiguredWrapperProviders(
         ILogger logger,
-        string driversPath,
         IServiceProvider serviceProvider)
     {
-        var providers = serviceProvider.GetServices<IConfiguredWrapperProvider>().ToList();
+        logger.Info("Runtime DLL discovery is disabled. Configure providers in host startup and engine-config.json.");
 
-        if (!Directory.Exists(driversPath))
-        {
-            return providers;
-        }
-
-        foreach (var dll in Directory.GetFiles(driversPath, "*.dll"))
-        {
-            try
-            {
-                var asm = Assembly.LoadFrom(dll);
-                foreach (var type in asm.GetTypes().Where(IsConfiguredProviderType))
-                {
-                    var provider = (IConfiguredWrapperProvider)ActivatorUtilities.CreateInstance(serviceProvider, type);
-                    providers.Add(provider);
-                    logger.Info($"Loaded configured wrapper provider '{type.FullName}' from '{dll}'.");
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"Failed to discover configured wrapper providers from '{dll}'.", ex);
-            }
-        }
-
-        return providers;
+        return serviceProvider.GetServices<IConfiguredWrapperProvider>().ToList();
     }
 
     private static IConfiguredWrapperProvider? ResolveProvider(IReadOnlyList<IConfiguredWrapperProvider> providers, DriverInstanceConfiguration configuration)
@@ -155,10 +125,5 @@ public sealed class EngineRuntime : IDisposable
         }
 
         return providers.FirstOrDefault(p => p.CanCreate(configuration));
-    }
-
-    private static bool IsConfiguredProviderType(Type type)
-    {
-        return !type.IsAbstract && typeof(IConfiguredWrapperProvider).IsAssignableFrom(type);
     }
 }

@@ -12,5 +12,5 @@ Engine-specific structure is organized by responsibility:
 
 Configured wrapper providers
 - `IConfiguredWrapperProvider` is the extension seam for nugget-specific wrapper instantiation.
-- Providers can be discovered from `drivers/*.dll` at startup.
+- Providers are registered in host startup and selected via `engine-config.json` entries.
 - `DriverInstanceConfiguration.Settings` supports custom per-wrapper arguments and endpoint formatting.
