@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using Ate.Engine.Infrastructure;
@@ -16,36 +15,6 @@ public sealed class DriverLoader
     {
         _registry = registry;
         _logger = logger;
-    }
-
-    public void LoadBuiltIns(params Type[] driverTypes)
-    {
-        foreach (var type in driverTypes)
-        {
-            RegisterType(type);
-        }
-    }
-
-    public void LoadFromDirectory(string driversPath)
-    {
-        if (!Directory.Exists(driversPath))
-        {
-            _logger.Info($"Drivers directory not found, skipping: {driversPath}");
-            return;
-        }
-
-        foreach (var dll in Directory.GetFiles(driversPath, "*.dll"))
-        {
-            try
-            {
-                var asm = Assembly.LoadFrom(dll);
-                LoadFromAssembly(asm);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"Failed to load drivers from '{dll}'.", ex);
-            }
-        }
     }
 
     public void LoadFromAssemblies(IEnumerable<Assembly> assemblies)

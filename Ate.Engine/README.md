@@ -1,18 +1,51 @@
 # Ate.Engine
 
-For the full repository map, see root `README.md`.
+Engine project for command queuing, wrapper execution, capability discovery, and HTTP hosting.
 
-## Extension model (simplified)
+## What this project hosts
 
-Driver integration is intentionally minimal:
-1. Implement a wrapper (`IDeviceDriver`) and annotate operations with `[DriverOperation]`.
-2. Register hardware dependencies + one `ConfiguredWrapperDescriptor(deviceType, wrapperType)` in an `IDriverModule`.
-3. Add a driver entry in `engine-config.json` with `deviceType`, `driverId`, and `settings`.
+- OWIN + Web API HTTP host at `http://localhost:9000/`.
+- Command queue worker (`CommandInvoker`) with pause/resume/clear/abort controls.
+- Driver registration and lookup (`DriverRegistry`).
+- Configured wrapper bootstrapping (`ConfiguredWrapperRegistrar` + `ConfiguredWrapperFactory`).
+- Runtime operation reflection (`WrapperOperationRuntime`) for both execution and capability metadata.
 
-At startup, the engine:
-- discovers `IDriverModule` implementations,
-- loads configured drivers from `engine-config.json`,
-- builds wrapper constructor arguments from config `settings` and DI,
-- auto-discovers wrapper operations for UI/API capability metadata.
+## Startup sequence (`EngineRuntime.Start`)
 
-No per-device configured-wrapper provider classes are required.
+1. Load plugin assemblies from `<engine base dir>/drivers/*.dll`.
+2. Discover `IDriverModule` implementations from built-in and plugin assemblies.
+3. Build DI container with logger, registry, invoker, registrar, and API controllers.
+4. Load `engine-config.json` into `EngineConfiguration`.
+5. Register configured wrappers from config.
+6. Load any direct `IDeviceDriver` plugin implementations via `DriverLoader`.
+7. Start command invoker worker.
+8. Start OWIN host and Web API routes.
+
+## API controllers
+
+- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand`.
+- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers.
+- `EngineController` (`api/engine/*`): pause/resume/clear/abort-current controls.
+- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data.
+
+## Configured wrapper model
+
+Required per family:
+1. Wrapper implementing `IDeviceDriver` with `[DriverOperation]` methods.
+2. Module implementing `IDriverModule` registering hardware DI and one `ConfiguredWrapperDescriptor`.
+3. Matching driver entries in `engine-config.json`.
+
+No per-device configured-wrapper provider class is required.
+
+## Current built-in families
+
+- DMM (`DmmDeviceWrapper`, `DmmDriverModule`, `DemoDmmHardwareDriver`)
+- PSU (`PsuDeviceWrapper`, `PsuDriverModule`, `DemoPsuHardwareDriver`)
+
+## Related docs
+
+- Root architecture + repo map: `../README.md`
+- Driver onboarding guide: `../ADD_NEW_DRIVER.md`
+- State review and design notes: `../PROJECT_STATE_REVIEW.md`
+- Module-specific conventions: `DeviceIntegration/Modules/README.md`
+

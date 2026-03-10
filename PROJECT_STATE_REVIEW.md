@@ -1,149 +1,119 @@
-# ATE-SYSTEM-POC — Current State Review (Post-Simplification)
+# ATE-SYSTEM-POC — Current State Review
 
-This review reflects the **current simplified architecture** where adding a device family is intentionally minimal.
+This review reflects the repository as it exists now.
 
-## What changed conceptually
+## 1) Current architecture snapshot
 
-The engine no longer uses per-device configured-wrapper providers (`IConfiguredWrapperProvider`) and per-device connection helper classes.
+### Projects
+- **Ate.Contracts**: request/response DTOs, status model, and dynamic capability metadata models.
+- **Ate.Engine**: runtime host, API controllers, command queue, driver registration, wrapper reflection.
+- **Ate.Ui**: WPF MVVM client that consumes capabilities and submits commands.
 
-Configured wrappers are now created by a generic flow:
-1. Module registers a `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
-2. `engine-config.json` provides `deviceType`, optional `wrapperType`, `driverId`, and `settings`.
-3. `ConfiguredWrapperFactory` reflectively builds wrapper constructor args from config + DI.
-4. `WrapperOperationRuntime` auto-discovers `[DriverOperation]` methods for capabilities.
+### Execution flow
+1. UI loads capability definitions from `GET /api/capabilities`.
+2. UI renders operation and parameter inputs from metadata.
+3. UI sends commands to `POST /api/command`.
+4. `CommandInvoker` dequeues and executes `OperateDeviceCommand`.
+5. Selected wrapper executes operation through `WrapperOperationRuntime`.
 
-This reduces “new driver overhead” to:
-- wrapper,
-- module registration,
-- config entry,
-- optional hardware adapter.
+## 2) Engine composition details
 
----
+`EngineRuntime.Start()` currently does the following:
+1. Discovers plugin assemblies from `drivers` folder.
+2. Discovers all `IDriverModule` types (built-in + plugins).
+3. Builds DI container with core services and controllers.
+4. Loads `engine-config.json`.
+5. Registers configured wrappers via `ConfiguredWrapperRegistrar`.
+6. Loads direct plugin `IDeviceDriver` implementations through `DriverLoader`.
+7. Starts queue worker and OWIN host.
 
-## 1) High-level architecture
+## 3) Driver integration model (current and active)
 
-Projects:
-- **Ate.Contracts**: shared DTOs/contracts.
-- **Ate.Engine**: command queue, driver registry, API host, wrapper runtime.
-- **Ate.Ui**: dynamic client over HTTP contracts.
+### Required artifacts for a new family
+- wrapper (`IDeviceDriver`) with `[DriverOperation]` methods,
+- module (`IDriverModule`) that registers hardware services and descriptor,
+- config entry in `engine-config.json`.
 
-Runtime flow:
-1. UI loads capabilities (`/api/capabilities`) and renders operation forms dynamically.
-2. UI submits command (`/api/command`).
-3. Engine queue executes command against resolved wrapper.
-4. Wrapper method invocation is reflection-driven via `[DriverOperation]`.
+### No provider class requirement
+Per-family configured-wrapper provider classes are not used in the active model.
 
----
+### Descriptor selection
+If `wrapperType` is set in config, matching can occur against:
+- descriptor `DeviceType`,
+- wrapper type name,
+- wrapper full type name.
 
-## 2) Driver integration model (current)
+Otherwise selection falls back to config `deviceType`.
 
-### Required building blocks
-1. `IDeviceDriver` wrapper class.
-2. `IDriverModule` registration with:
-   - hardware dependencies (if needed),
-   - `ConfiguredWrapperDescriptor` mapping.
-3. Config entry in `engine-config.json`.
+## 4) Constructor binding behavior
 
-### Generic configured wrapper creation
+Configured wrapper constructor arguments are resolved in this order:
+1. `driverId` parameter from config.
+2. `settings[parameterName]`.
+3. computed `endpoint` or `target` (from direct value or format template).
+4. DI service by parameter type.
+5. default parameter value.
 
-`ConfiguredWrapperFactory` resolves constructor parameters using:
-- `driverId` special handling,
-- exact `settings` key by constructor parameter name,
-- DI service resolution,
-- optional default parameter values,
-- special formatted keys for `endpoint`/`target` via `endpointFormat`/`targetFormat`.
+Formatting notes:
+- `endpointFormat` and `targetFormat` replace `{key}` placeholders with values from `settings`.
+- missing placeholders become empty strings.
 
-This makes per-device provider classes unnecessary for most cases.
+## 5) Capability generation behavior
 
----
+`WrapperOperationRuntime.BuildDefinition`:
+- reflects public instance methods with `[DriverOperation]`,
+- derives operation names from attribute override or method name,
+- infers parameter types (`String`, `Integer`, `Decimal`, `Boolean`),
+- applies defaults from method default values or implicit type defaults.
 
-## 3) Startup wiring (EngineRuntime)
+Duplicate operation names on a wrapper type throw an error.
 
-At startup:
-1. Discover built-in and plugin `IDriverModule` implementations.
-2. Build DI container.
-3. Load `engine-config.json`.
-4. Resolve `ConfiguredWrapperDescriptor` entries from DI.
-5. For each configured driver:
-   - choose descriptor by `wrapperType` override or `deviceType`,
-   - instantiate wrapper via `ConfiguredWrapperFactory`,
-   - register wrapper + auto-built capability metadata.
-6. Load any raw `IDeviceDriver` plugin implementations.
-7. Start command invoker and OWIN host.
+## 6) Command runtime behavior
 
----
+`CommandInvoker`:
+- uses an in-memory concurrent queue,
+- has state values like `Stopped`, `Running`, `Paused`, `Stopping`,
+- supports `Pause`, `Resume`, `ClearPending`, and `AbortCurrent`,
+- tracks `CurrentCommand` and `LastError`.
 
-## 4) Config model
+Cancellation and command failures are logged and surfaced in `LastError`.
 
-`DriverInstanceConfiguration` now uses:
-- `deviceType`
-- `driverId`
-- `wrapperType` (optional override)
-- `settings` (constructor args)
-
-Backward compatibility:
-- legacy `wrapperProviderType` JSON is still accepted and mapped into `wrapperType`.
-
----
-
-## 5) Current built-in device families
+## 7) Built-in integrations
 
 - **DMM**
-  - Wrapper: `DmmDeviceWrapper`
-  - Module: `DmmDriverModule`
-  - Hardware demo: `DemoDmmHardwareDriver`
+  - wrapper: `DmmDeviceWrapper`
+  - module: `DmmDriverModule`
+  - hardware: `DemoDmmHardwareDriver`
+  - operations: `MeasureVoltage`, `Identify`
 
 - **PSU**
-  - Wrapper: `PsuDeviceWrapper`
-  - Module: `PsuDriverModule`
-  - Hardware demo: `DemoPsuHardwareDriver`
+  - wrapper: `PsuDeviceWrapper`
+  - module: `PsuDriverModule`
+  - hardware: `DemoPsuHardwareDriver`
+  - operations: `Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`
 
-Both modules now register descriptors directly and do not register provider classes.
+## 8) UI behavior status
 
----
+`MainViewModel` currently:
+- loads capabilities at startup,
+- falls back to a baked-in DMM/PSU catalog when the engine is unreachable,
+- rebuilds parameter inputs from selected device + operation,
+- converts input strings into typed payloads (`int`, `decimal`, `bool`, `string`),
+- polls `/api/status` every second,
+- supports pause/resume/clear/abort commands.
 
-## 6) Why this is simpler and more modular
+## 9) Known constraints
 
-- Removes repetitive per-family provider/connection plumbing.
-- Keeps extension surface small and predictable.
-- Aligns with your requested workflow: **add driver wrapper, register in module, configure address/settings, done**.
-- Preserves dynamic UI behavior via wrapper operation discovery.
+- Queue is in-memory only (no persistence).
+- Wrapper operation invocation currently expects synchronous wrapper operation methods.
+- `BuildParameterDefinition` marks parameters as not required by default and relies on defaults/implicit values.
+- Plugin discovery is filesystem-based (`drivers/*.dll`) with best-effort load.
 
----
+## 10) Recommended next steps
 
-## 7) Practical guidance for adding a new device now
+1. Add automated tests around constructor binding edge cases.
+2. Add integration tests for capability generation and command execution.
+3. Add structured logging context (device type, driver id, operation, command id).
+4. Add optional persistence/replay model for queued commands if durability is required.
+5. Consider explicit required-parameter semantics in capability metadata for stricter UI validation.
 
-1. Add hardware adapter interface/impl only if wrapper needs SDK abstraction.
-2. Add wrapper class implementing `IDeviceDriver`.
-3. Add `[DriverOperation]` methods for commands to expose in UI.
-4. Add module registration:
-   - hardware services,
-   - `ConfiguredWrapperDescriptor("NEWTYPE", typeof(NewWrapper))`.
-5. Add `engine-config.json` entry with settings matching wrapper constructor parameter names.
-
-No provider class required.
-
-
----
-
-## 8) Recommended next revisions (to reduce long-term maintenance cost)
-
-1. **Introduce a tiny test project for wrapper bootstrapping**
-   - Add focused tests for `ConfiguredWrapperFactory` constructor binding and type conversion.
-   - Add one integration test for `EngineRuntime` config-to-registration flow.
-
-2. **Split runtime composition into dedicated services**
-   - Extract configured-wrapper registration from `EngineRuntime` into a dedicated `ConfiguredWrapperRegistrar` service.
-   - Keep `EngineRuntime` as thin orchestration only.
-
-3. **Standardize wrapper constructor conventions**
-   - Document recommended constructor parameter names (`driverId`, `address`, `channel`, `endpoint`).
-   - Avoid multiple public constructors in wrappers to prevent ambiguity.
-
-4. **Optional plugin template package**
-   - Provide a small reference driver module template in a separate project/repo.
-   - New family then becomes: copy template, implement wrapper methods, update config.
-
-5. **Keep config-only responsibilities in config**
-   - Continue avoiding per-family provider classes unless a device truly needs highly custom boot logic.
-   - For unusual cases, support optional custom binder extension rather than reintroducing full provider complexity.
