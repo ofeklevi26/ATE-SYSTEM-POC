@@ -42,11 +42,12 @@ public sealed class EngineRuntime : IDisposable
         var logger = serviceProvider.GetRequiredService<ILogger>();
         var registry = serviceProvider.GetRequiredService<DriverRegistry>();
         var invoker = serviceProvider.GetRequiredService<CommandInvoker>();
+        var configuredWrapperRegistrar = serviceProvider.GetRequiredService<ConfiguredWrapperRegistrar>();
 
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
 
-        RegisterConfiguredDriverWrappers(config, registry, logger, serviceProvider);
+        configuredWrapperRegistrar.Register(config);
 
         var loader = new DriverLoader(registry, logger);
         loader.LoadFromAssemblies(pluginAssemblies);
@@ -72,6 +73,7 @@ public sealed class EngineRuntime : IDisposable
         services.AddSingleton<ILogger, ConsoleLogger>();
         services.AddSingleton<DriverRegistry>();
         services.AddSingleton<CommandInvoker>();
+        services.AddSingleton<ConfiguredWrapperRegistrar>();
 
         foreach (var module in DiscoverDriverModules(pluginAssemblies))
         {
@@ -84,36 +86,6 @@ public sealed class EngineRuntime : IDisposable
         services.AddTransient<CapabilitiesController>();
 
         return services;
-    }
-
-    private static void RegisterConfiguredDriverWrappers(
-        EngineConfiguration config,
-        DriverRegistry registry,
-        ILogger logger,
-        IServiceProvider serviceProvider)
-    {
-        var descriptors = serviceProvider.GetServices<ConfiguredWrapperDescriptor>().ToList();
-
-        foreach (var cfg in config.Drivers)
-        {
-            var descriptor = ResolveDescriptor(descriptors, cfg);
-            if (descriptor == null)
-            {
-                logger.Error($"No wrapper descriptor found for deviceType='{cfg.DeviceType}', wrapperType='{cfg.WrapperType ?? "(auto)"}'.");
-                continue;
-            }
-
-            try
-            {
-                var wrapper = ConfiguredWrapperFactory.Create(cfg, descriptor.WrapperType, serviceProvider);
-                registry.RegisterInstance(wrapper, WrapperOperationRuntime.BuildDefinition(wrapper));
-                logger.Info($"Registered configured wrapper '{descriptor.WrapperType.Name}' for {cfg.DeviceType}::{cfg.DriverId}");
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"Failed to create configured wrapper '{descriptor.WrapperType.FullName}' for driverId='{cfg.DriverId}'.", ex);
-            }
-        }
     }
 
     private static IReadOnlyList<Assembly> DiscoverDriverAssemblies(string driversPath, ILogger logger)
@@ -158,19 +130,6 @@ public sealed class EngineRuntime : IDisposable
         }
 
         return modules;
-    }
-
-    private static ConfiguredWrapperDescriptor? ResolveDescriptor(IReadOnlyList<ConfiguredWrapperDescriptor> descriptors, DriverInstanceConfiguration configuration)
-    {
-        if (!string.IsNullOrWhiteSpace(configuration.WrapperType))
-        {
-            return descriptors.FirstOrDefault(d =>
-                d.DeviceType.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase) ||
-                d.WrapperType.FullName?.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase) == true ||
-                d.WrapperType.Name.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return descriptors.FirstOrDefault(d => d.DeviceType.Equals(configuration.DeviceType, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsDriverModuleType(Type type)

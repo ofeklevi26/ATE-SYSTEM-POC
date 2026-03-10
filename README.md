@@ -102,3 +102,5 @@ ATE-SYSTEM-POC/
    - `settings` keys matching wrapper constructor parameter names.
 4. Start engine; wrapper capabilities are auto-discovered and UI fields are loaded dynamically from `/api/capabilities`.
 
+See `ADD_NEW_DRIVER.md` for a step-by-step implementation guide and constructor-binding rules.
+
