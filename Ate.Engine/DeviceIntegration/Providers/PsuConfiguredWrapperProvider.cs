@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using Ate.Contracts;
 using Ate.Engine.Configuration;
 using Ate.Engine.Drivers;
 using Ate.Engine.Hardware;
@@ -32,57 +30,8 @@ public sealed class PsuConfiguredWrapperProvider : IConfiguredWrapperProvider
         return new ConfiguredWrapperRegistration
         {
             Driver = wrapper,
-            Definition = BuildDefinition(configuration),
+            Definition = WrapperOperationRuntime.BuildDefinition(wrapper),
             Description = $"{Name}::{configuration.DriverId} endpoint='{endpoint}' CH{configuration.Channel}"
-        };
-    }
-
-    private static DeviceCommandDefinition BuildDefinition(DriverInstanceConfiguration cfg)
-    {
-        return new DeviceCommandDefinition
-        {
-            DeviceType = cfg.DeviceType,
-            DriverId = cfg.DriverId,
-            DriverParameters = new List<CommandParameterDefinition>
-            {
-                new CommandParameterDefinition
-                {
-                    Name = "channel",
-                    Type = ParameterValueType.Integer,
-                    IsRequired = true,
-                    DefaultValue = cfg.Channel.ToString()
-                }
-            },
-            Operations = new List<CommandOperationDefinition>
-            {
-                new CommandOperationDefinition
-                {
-                    Name = "SetVoltage",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
-                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
-                    }
-                },
-                new CommandOperationDefinition
-                {
-                    Name = "SetCurrentLimit",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
-                    }
-                },
-                new CommandOperationDefinition
-                {
-                    Name = "SetOutput",
-                    Parameters = new List<CommandParameterDefinition>
-                    {
-                        new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
-                    }
-                },
-                new CommandOperationDefinition { Name = "OutputOff" },
-                new CommandOperationDefinition { Name = "Identify" }
-            }
         };
     }
 }
