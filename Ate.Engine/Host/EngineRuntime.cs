@@ -42,11 +42,12 @@ public sealed class EngineRuntime : IDisposable
         var logger = serviceProvider.GetRequiredService<ILogger>();
         var registry = serviceProvider.GetRequiredService<DriverRegistry>();
         var invoker = serviceProvider.GetRequiredService<CommandInvoker>();
+        var configuredWrapperRegistrar = serviceProvider.GetRequiredService<ConfiguredWrapperRegistrar>();
 
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
 
-        RegisterConfiguredDriverWrappers(config, registry, logger, serviceProvider);
+        configuredWrapperRegistrar.Register(config);
 
         var loader = new DriverLoader(registry, logger);
         loader.LoadFromAssemblies(pluginAssemblies);
@@ -72,6 +73,7 @@ public sealed class EngineRuntime : IDisposable
         services.AddSingleton<ILogger, ConsoleLogger>();
         services.AddSingleton<DriverRegistry>();
         services.AddSingleton<CommandInvoker>();
+        services.AddSingleton<ConfiguredWrapperRegistrar>();
 
         foreach (var module in DiscoverDriverModules(pluginAssemblies))
         {
@@ -84,43 +86,6 @@ public sealed class EngineRuntime : IDisposable
         services.AddTransient<CapabilitiesController>();
 
         return services;
-    }
-
-    private static void RegisterConfiguredDriverWrappers(
-        EngineConfiguration config,
-        DriverRegistry registry,
-        ILogger logger,
-        IServiceProvider serviceProvider)
-    {
-        var providers = serviceProvider.GetServices<IConfiguredWrapperProvider>().ToList();
-
-        foreach (var cfg in config.Drivers)
-        {
-            var provider = ResolveProvider(providers, cfg);
-            if (provider == null)
-            {
-                logger.Error($"No wrapper provider found for deviceType='{cfg.DeviceType}', wrapperProviderType='{cfg.WrapperProviderType ?? "(auto)"}'.");
-                continue;
-            }
-
-            var validation = provider.Validate(cfg);
-            if (!validation.IsValid)
-            {
-                logger.Error($"Configured wrapper validation failed for provider '{provider.Name}' and driverId='{cfg.DriverId}': {validation.Error}");
-                continue;
-            }
-
-            try
-            {
-                var registration = provider.Create(cfg, logger);
-                registry.RegisterInstance(registration.Driver, registration.Definition);
-                logger.Info($"Registered configured wrapper via provider '{provider.Name}': {provider.Describe(cfg)}");
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"Failed to create configured wrapper via provider '{provider.Name}' for driverId='{cfg.DriverId}'.", ex);
-            }
-        }
     }
 
     private static IReadOnlyList<Assembly> DiscoverDriverAssemblies(string driversPath, ILogger logger)
@@ -165,19 +130,6 @@ public sealed class EngineRuntime : IDisposable
         }
 
         return modules;
-    }
-
-    private static IConfiguredWrapperProvider? ResolveProvider(IReadOnlyList<IConfiguredWrapperProvider> providers, DriverInstanceConfiguration configuration)
-    {
-        if (!string.IsNullOrWhiteSpace(configuration.WrapperProviderType))
-        {
-            return providers.FirstOrDefault(p =>
-                p.Name.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase) ||
-                p.GetType().FullName?.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase) == true ||
-                p.GetType().Name.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return providers.FirstOrDefault(p => p.CanCreate(configuration));
     }
 
     private static bool IsDriverModuleType(Type type)

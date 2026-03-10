@@ -1,13 +1,20 @@
 # Driver Modules
 
-`IDriverModule` is the per-driver-family DI seam.
+A driver family should be minimal:
+1. write a wrapper (`IDeviceDriver`) with `[DriverOperation]` methods,
+2. register any hardware services the wrapper needs,
+3. register one `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
 
-Each module should register:
-- hardware driver factory implementation(s),
-- configured wrapper provider(s),
-- any family-specific services needed by providers/wrappers.
+At startup, wrappers are instantiated from `engine-config.json` settings + DI services.
+The UI capabilities are discovered directly from wrapper methods marked with `[DriverOperation]`.
 
-## Rules
-- Keep endpoint/connection parsing in provider(s), not in host/shared helpers.
-- Keep settings keys provider-owned (no global enforced endpoint schema).
-- Prefer one module per family (e.g., DMM, PSU, NI-DMM, NI-PSU).
+## Config convention
+Each configured driver entry supports:
+- `deviceType`
+- `driverId`
+- `wrapperType` (optional override; defaults to `deviceType` descriptor)
+- `settings` (constructor args such as `address`, `channel`, plus `endpoint`/`endpointFormat` or `target`/`targetFormat`)
+
+## Why this is simpler
+No per-device configured-wrapper provider classes are required anymore.
+Adding a new device family is now wrapper + module (+ hardware adapter if needed).

@@ -18,7 +18,7 @@ ATE-SYSTEM-POC/
 │
 ├── Ate.Engine/
 │   ├── Ate.Engine.csproj                  # Engine executable project and package references (OWIN/WebApi/JSON).
-│   ├── engine-config.json                 # Configured device wrapper instances (type, id, provider + settings).
+│   ├── engine-config.json                 # Configured device wrapper instances (type, id, wrapper selector + settings).
 │   ├── README.md                          # Engine-local architecture notes.
 │   │
 │   ├── Host/
@@ -43,8 +43,9 @@ ATE-SYSTEM-POC/
 │   │   │   └── OperateDeviceCommand.cs    # Concrete queued command that resolves a driver and executes an operation.
 │   │   └── Drivers/
 │   │       ├── IDeviceDriver.cs           # Engine-facing wrapper contract (device type/id + ExecuteAsync).
-│   │       ├── IConfiguredWrapperProvider.cs # Configured-wrapper provider seam (validate/create/describe).
-│   │       ├── IDriverModule.cs            # Driver-family DI module seam (register provider + hardware services).
+│   │       ├── ConfiguredWrapperDescriptor.cs # Maps deviceType to wrapper type for config-driven instantiation.
+│   │       ├── ConfiguredWrapperFactory.cs # Reflective wrapper builder (constructor args from config + DI).
+│   │       ├── IDriverModule.cs            # Driver-family DI module seam (register wrapper descriptor + hardware services).
 │   │       ├── DriverRegistry.cs          # Driver registration/lookup and capability-definition storage.
 │   │       └── DriverLoader.cs            # Optional plugin loader that discovers/registers drivers from assemblies.
 │   │
@@ -56,14 +57,9 @@ ATE-SYSTEM-POC/
 │   │   │   ├── DmmDeviceWrapper.cs        # DMM engine wrapper translating engine operations to DMM hardware calls.
 │   │   │   └── PsuDeviceWrapper.cs        # PSU engine wrapper translating engine operations to PSU hardware calls.
 │   │   ├── Modules/
-│   │   │   ├── DmmDriverModule.cs        # DMM module (registers DMM provider + hardware factory).
-│   │   │   ├── PsuDriverModule.cs        # PSU module (registers PSU provider + hardware factory).
+│   │   │   ├── DmmDriverModule.cs        # DMM module (registers DMM wrapper descriptor + hardware factory).
+│   │   │   ├── PsuDriverModule.cs        # PSU module (registers PSU wrapper descriptor + hardware factory).
 │   │   │   └── README.md                 # Convention notes for adding new driver modules.
-│   │   ├── Providers/
-│   │   │   ├── DmmConfiguredWrapperProvider.cs # Built-in DMM configured-wrapper provider (instantiation + metadata).
-│   │   │   ├── DmmConnectionSettings.cs         # DMM-specific connection/address/endpoint parsing helpers.
-│   │   │   ├── PsuConfiguredWrapperProvider.cs # Built-in PSU configured-wrapper provider (instantiation + metadata).
-│   │   │   └── PsuConnectionSettings.cs         # PSU-specific connection/address/endpoint parsing helpers.
 │   │   └── DemoDrivers/
 │   │       ├── DemoDmmHardwareDriver.cs   # Simulated DMM hardware implementation for local/testing use.
 │   │       └── DemoPsuHardwareDriver.cs   # Simulated PSU hardware implementation for local/testing use.
@@ -95,14 +91,16 @@ ATE-SYSTEM-POC/
 - `Ate.Ui` remains a thin client that drives the engine exclusively through HTTP contracts.
 
 
-## Wiring a new nugget wrapper (minimal-change flow)
+## Wiring a new wrapper (minimal-change flow)
 
-1. Implement a provider class that implements `IConfiguredWrapperProvider`.
-   - Each provider owns its own connection/endpoint settings and parsing logic (no shared endpoint builder).
-   - Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]`.
-2. Implement an `IDriverModule` that registers provider + hardware factory into DI.
-3. Place the module/provider assembly in `Ate.Engine/drivers` (auto-discovered) or compile it in-engine.
-4. Configure `engine-config.json` for each instance using:
-   - `wrapperProviderType` (provider name/type),
-   - provider-specific `settings` keys.
-5. Start engine; UI fetches capabilities dynamically from `/api/capabilities`, so form fields update without UI code changes.
+1. Implement an `IDeviceDriver` wrapper with `[DriverOperation]` methods.
+2. In your `IDriverModule`, register:
+   - hardware dependencies (SDK adapter/factory),
+   - one `ConfiguredWrapperDescriptor("<DEVICE_TYPE>", typeof(<WrapperType>))`.
+3. Configure `engine-config.json` for each instance:
+   - `deviceType`, `driverId`, optional `wrapperType`,
+   - `settings` keys matching wrapper constructor parameter names.
+4. Start engine; wrapper capabilities are auto-discovered and UI fields are loaded dynamically from `/api/capabilities`.
+
+See `ADD_NEW_DRIVER.md` for a step-by-step implementation guide and constructor-binding rules.
+

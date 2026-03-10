@@ -69,7 +69,25 @@ public sealed class DriverInstanceConfiguration
 
     public string DriverId { get; set; } = "default";
 
-    public string? WrapperProviderType { get; set; }
+    public string? WrapperType { get; set; }
+
+    [JsonProperty("wrapperProviderType")]
+    public string? LegacyWrapperProviderType
+    {
+        get => WrapperType;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(WrapperType))
+            {
+                WrapperType = value;
+            }
+        }
+    }
+
+    public bool ShouldSerializeLegacyWrapperProviderType()
+    {
+        return false;
+    }
 
     public Dictionary<string, string> Settings { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
