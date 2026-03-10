@@ -1,18 +1,18 @@
 # Ate.Engine
 
-For the complete repository file-by-file tree and responsibilities, see the root `README.md`.
+For the full repository map, see root `README.md`.
 
-Engine-specific structure is organized by responsibility:
-- `Host/` for bootstrapping and hosting,
-- `Api/` for HTTP controllers,
-- `Core/` for queue/command/driver runtime,
-- `DeviceIntegration/` for wrapper + hardware abstraction + demo implementations,
-- `Common/` for logging and serialization utilities.
+## Extension model (simplified)
 
+Driver integration is intentionally minimal:
+1. Implement a wrapper (`IDeviceDriver`) and annotate operations with `[DriverOperation]`.
+2. Register hardware dependencies + one `ConfiguredWrapperDescriptor(deviceType, wrapperType)` in an `IDriverModule`.
+3. Add a driver entry in `engine-config.json` with `deviceType`, `driverId`, and `settings`.
 
-Configured wrapper providers
-- Driver modules (`IDriverModule`) are discovered and register their own DI wiring (factory/provider).
-- `IConfiguredWrapperProvider` is the extension seam for nugget-specific wrapper instantiation.
-- Wrapper operations are now discovered from methods marked with `[DriverOperation]` so operation/parameter metadata no longer needs to be hand-authored in providers.
-- Providers can be discovered from `drivers/*.dll` at startup.
-- `DriverInstanceConfiguration.Settings` supports custom per-wrapper arguments and endpoint formatting.
+At startup, the engine:
+- discovers `IDriverModule` implementations,
+- loads configured drivers from `engine-config.json`,
+- builds wrapper constructor arguments from config `settings` and DI,
+- auto-discovers wrapper operations for UI/API capability metadata.
+
+No per-device configured-wrapper provider classes are required.

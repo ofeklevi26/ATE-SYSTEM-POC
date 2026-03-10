@@ -92,33 +92,26 @@ public sealed class EngineRuntime : IDisposable
         ILogger logger,
         IServiceProvider serviceProvider)
     {
-        var providers = serviceProvider.GetServices<IConfiguredWrapperProvider>().ToList();
+        var descriptors = serviceProvider.GetServices<ConfiguredWrapperDescriptor>().ToList();
 
         foreach (var cfg in config.Drivers)
         {
-            var provider = ResolveProvider(providers, cfg);
-            if (provider == null)
+            var descriptor = ResolveDescriptor(descriptors, cfg);
+            if (descriptor == null)
             {
-                logger.Error($"No wrapper provider found for deviceType='{cfg.DeviceType}', wrapperProviderType='{cfg.WrapperProviderType ?? "(auto)"}'.");
-                continue;
-            }
-
-            var validation = provider.Validate(cfg);
-            if (!validation.IsValid)
-            {
-                logger.Error($"Configured wrapper validation failed for provider '{provider.Name}' and driverId='{cfg.DriverId}': {validation.Error}");
+                logger.Error($"No wrapper descriptor found for deviceType='{cfg.DeviceType}', wrapperType='{cfg.WrapperType ?? "(auto)"}'.");
                 continue;
             }
 
             try
             {
-                var registration = provider.Create(cfg, logger);
-                registry.RegisterInstance(registration.Driver, registration.Definition);
-                logger.Info($"Registered configured wrapper via provider '{provider.Name}': {provider.Describe(cfg)}");
+                var wrapper = ConfiguredWrapperFactory.Create(cfg, descriptor.WrapperType, serviceProvider);
+                registry.RegisterInstance(wrapper, WrapperOperationRuntime.BuildDefinition(wrapper));
+                logger.Info($"Registered configured wrapper '{descriptor.WrapperType.Name}' for {cfg.DeviceType}::{cfg.DriverId}");
             }
             catch (Exception ex)
             {
-                logger.Error($"Failed to create configured wrapper via provider '{provider.Name}' for driverId='{cfg.DriverId}'.", ex);
+                logger.Error($"Failed to create configured wrapper '{descriptor.WrapperType.FullName}' for driverId='{cfg.DriverId}'.", ex);
             }
         }
     }
@@ -167,17 +160,17 @@ public sealed class EngineRuntime : IDisposable
         return modules;
     }
 
-    private static IConfiguredWrapperProvider? ResolveProvider(IReadOnlyList<IConfiguredWrapperProvider> providers, DriverInstanceConfiguration configuration)
+    private static ConfiguredWrapperDescriptor? ResolveDescriptor(IReadOnlyList<ConfiguredWrapperDescriptor> descriptors, DriverInstanceConfiguration configuration)
     {
-        if (!string.IsNullOrWhiteSpace(configuration.WrapperProviderType))
+        if (!string.IsNullOrWhiteSpace(configuration.WrapperType))
         {
-            return providers.FirstOrDefault(p =>
-                p.Name.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase) ||
-                p.GetType().FullName?.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase) == true ||
-                p.GetType().Name.Equals(configuration.WrapperProviderType, StringComparison.OrdinalIgnoreCase));
+            return descriptors.FirstOrDefault(d =>
+                d.DeviceType.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase) ||
+                d.WrapperType.FullName?.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase) == true ||
+                d.WrapperType.Name.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase));
         }
 
-        return providers.FirstOrDefault(p => p.CanCreate(configuration));
+        return descriptors.FirstOrDefault(d => d.DeviceType.Equals(configuration.DeviceType, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsDriverModuleType(Type type)

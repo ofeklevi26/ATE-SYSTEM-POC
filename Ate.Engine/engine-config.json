@@ -3,24 +3,24 @@
     {
       "deviceType": "DMM",
       "driverId": "default",
-      "wrapperProviderType": "DMM",
       "settings": {
         "address": "192.168.0.10",
         "port": "5025",
         "channel": "1",
         "endpointFormat": "{address}:{port}"
-      }
+      },
+      "wrapperType": "DMM"
     },
     {
       "deviceType": "PSU",
       "driverId": "default",
-      "wrapperProviderType": "PSU",
       "settings": {
         "address": "192.168.0.20",
         "port": "5025",
         "channel": "1",
         "endpointFormat": "tcp-{address}:{port}"
-      }
+      },
+      "wrapperType": "PSU"
     }
   ]
 }
