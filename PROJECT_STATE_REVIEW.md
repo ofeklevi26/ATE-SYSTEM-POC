@@ -112,6 +112,7 @@ This gives a practical fallback hierarchy while still allowing explicit targetin
 
 - `IConfiguredWrapperProvider` converts config entries into concrete `IDeviceDriver` wrapper instances.
 - Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]` via `WrapperOperationRuntime`.
+- Operation parameters are emitted with defaults for every field (explicit method defaults when present, otherwise type-based defaults) so UI forms are always pre-populated.
 - Built-in providers (`DmmConfiguredWrapperProvider`, `PsuConfiguredWrapperProvider`) use demo hardware drivers and connection endpoint resolution rules.
 - `ConnectionEndpointResolver` supports:
   - `settings.endpoint` explicit value,

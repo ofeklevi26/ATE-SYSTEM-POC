@@ -69,11 +69,10 @@ public static class WrapperOperationRuntime
 
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
-        var isNullableValueType = Nullable.GetUnderlyingType(parameter.ParameterType) != null;
-        var isRequired = !parameter.HasDefaultValue && !isNullableValueType;
-        var defaultValue = parameter.HasDefaultValue && parameter.DefaultValue != null
-            ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
-            : null;
+        var isRequired = false;
+        var defaultValue = parameter.HasDefaultValue
+            ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture) ?? GetImplicitDefaultValueString(parameter.ParameterType)
+            : GetImplicitDefaultValueString(parameter.ParameterType);
 
         return new CommandParameterDefinition
         {
@@ -120,13 +119,73 @@ public static class WrapperOperationRuntime
                 return param.DefaultValue;
             }
 
-            if (Nullable.GetUnderlyingType(param.ParameterType) != null)
-            {
-                return null;
-            }
-
-            throw new InvalidOperationException($"Missing required parameter '{param.Name}'.");
+            return GetImplicitDefaultValue(param.ParameterType);
         }).ToArray();
+    }
+
+
+    private static string GetImplicitDefaultValueString(Type type)
+    {
+        var effectiveType = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (effectiveType == typeof(bool))
+        {
+            return "false";
+        }
+
+        if (effectiveType == typeof(int) || effectiveType == typeof(long))
+        {
+            return "0";
+        }
+
+        if (effectiveType == typeof(decimal) || effectiveType == typeof(double) || effectiveType == typeof(float))
+        {
+            return "0.0";
+        }
+
+        return string.Empty;
+    }
+
+    private static object? GetImplicitDefaultValue(Type type)
+    {
+        var effectiveType = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (effectiveType == typeof(bool))
+        {
+            return false;
+        }
+
+        if (effectiveType == typeof(int))
+        {
+            return 0;
+        }
+
+        if (effectiveType == typeof(long))
+        {
+            return 0L;
+        }
+
+        if (effectiveType == typeof(decimal))
+        {
+            return 0m;
+        }
+
+        if (effectiveType == typeof(double))
+        {
+            return 0d;
+        }
+
+        if (effectiveType == typeof(float))
+        {
+            return 0f;
+        }
+
+        if (effectiveType == typeof(string))
+        {
+            return string.Empty;
+        }
+
+        return effectiveType.IsValueType ? Activator.CreateInstance(effectiveType) : null;
     }
 
     private static object? ConvertValue(object value, Type targetType)
