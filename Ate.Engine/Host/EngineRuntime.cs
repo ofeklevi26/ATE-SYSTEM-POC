@@ -6,10 +6,7 @@ using System.Reflection;
 using Ate.Engine.Commands;
 using Ate.Engine.Configuration;
 using Ate.Engine.Controllers;
-using Ate.Engine.DemoDrivers;
-using Ate.Engine.DeviceIntegration.Providers;
 using Ate.Engine.Drivers;
-using Ate.Engine.Hardware;
 using Ate.Engine.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Owin.Hosting;
@@ -35,7 +32,8 @@ public sealed class EngineRuntime : IDisposable
 
     public static EngineRuntime Start()
     {
-        var services = BuildServiceCollection();
+        var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
+        var services = BuildServiceCollection(driversPath);
         var serviceProvider = services.BuildServiceProvider();
 
         var logger = serviceProvider.GetRequiredService<ILogger>();
@@ -45,8 +43,7 @@ public sealed class EngineRuntime : IDisposable
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
         var config = EngineConfiguration.Load(configPath);
 
-        var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
-        RegisterConfiguredDriverWrappers(config, registry, logger, driversPath, serviceProvider);
+        RegisterConfiguredDriverWrappers(config, registry, logger, serviceProvider);
 
         var loader = new DriverLoader(registry, logger);
         loader.LoadFromDirectory(driversPath);
@@ -66,18 +63,17 @@ public sealed class EngineRuntime : IDisposable
         _invoker.StopAsync().GetAwaiter().GetResult();
     }
 
-    private static ServiceCollection BuildServiceCollection()
+    private static ServiceCollection BuildServiceCollection(string driversPath)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILogger, ConsoleLogger>();
         services.AddSingleton<DriverRegistry>();
         services.AddSingleton<CommandInvoker>();
 
-        services.AddSingleton<IDmmHardwareDriverFactory, DemoDmmHardwareDriverFactory>();
-        services.AddSingleton<IPsuHardwareDriverFactory, DemoPsuHardwareDriverFactory>();
-
-        services.AddSingleton<IConfiguredWrapperProvider, DmmConfiguredWrapperProvider>();
-        services.AddSingleton<IConfiguredWrapperProvider, PsuConfiguredWrapperProvider>();
+        foreach (var module in DiscoverDriverModules(driversPath))
+        {
+            module.Register(services);
+        }
 
         services.AddTransient<CommandController>();
         services.AddTransient<StatusController>();
@@ -91,10 +87,9 @@ public sealed class EngineRuntime : IDisposable
         EngineConfiguration config,
         DriverRegistry registry,
         ILogger logger,
-        string driversPath,
         IServiceProvider serviceProvider)
     {
-        var providers = DiscoverConfiguredWrapperProviders(logger, driversPath, serviceProvider);
+        var providers = serviceProvider.GetServices<IConfiguredWrapperProvider>().ToList();
 
         foreach (var cfg in config.Drivers)
         {
@@ -105,11 +100,18 @@ public sealed class EngineRuntime : IDisposable
                 continue;
             }
 
+            var validation = provider.Validate(cfg);
+            if (!validation.IsValid)
+            {
+                logger.Error($"Configured wrapper validation failed for provider '{provider.Name}' and driverId='{cfg.DriverId}': {validation.Error}");
+                continue;
+            }
+
             try
             {
                 var registration = provider.Create(cfg, logger);
                 registry.RegisterInstance(registration.Driver, registration.Definition);
-                logger.Info($"Registered configured wrapper via provider '{provider.Name}': {registration.Description ?? cfg.DriverId}");
+                logger.Info($"Registered configured wrapper via provider '{provider.Name}': {provider.Describe(cfg)}");
             }
             catch (Exception ex)
             {
@@ -118,37 +120,38 @@ public sealed class EngineRuntime : IDisposable
         }
     }
 
-    private static IReadOnlyList<IConfiguredWrapperProvider> DiscoverConfiguredWrapperProviders(
-        ILogger logger,
-        string driversPath,
-        IServiceProvider serviceProvider)
+    private static IReadOnlyList<IDriverModule> DiscoverDriverModules(string driversPath)
     {
-        var providers = serviceProvider.GetServices<IConfiguredWrapperProvider>().ToList();
+        var modules = new List<IDriverModule>();
+        var assemblies = new List<Assembly> { typeof(EngineRuntime).Assembly };
 
-        if (!Directory.Exists(driversPath))
+        if (Directory.Exists(driversPath))
         {
-            return providers;
-        }
-
-        foreach (var dll in Directory.GetFiles(driversPath, "*.dll"))
-        {
-            try
+            foreach (var dll in Directory.GetFiles(driversPath, "*.dll"))
             {
-                var asm = Assembly.LoadFrom(dll);
-                foreach (var type in asm.GetTypes().Where(IsConfiguredProviderType))
+                try
                 {
-                    var provider = (IConfiguredWrapperProvider)ActivatorUtilities.CreateInstance(serviceProvider, type);
-                    providers.Add(provider);
-                    logger.Info($"Loaded configured wrapper provider '{type.FullName}' from '{dll}'.");
+                    assemblies.Add(Assembly.LoadFrom(dll));
+                }
+                catch
+                {
+                    // Ignore module assembly load failures during discovery; provider/driver loading logs elsewhere.
                 }
             }
-            catch (Exception ex)
+        }
+
+        foreach (var assembly in assemblies.Distinct())
+        {
+            foreach (var type in assembly.GetTypes().Where(IsDriverModuleType))
             {
-                logger.Error($"Failed to discover configured wrapper providers from '{dll}'.", ex);
+                if (Activator.CreateInstance(type) is IDriverModule module)
+                {
+                    modules.Add(module);
+                }
             }
         }
 
-        return providers;
+        return modules;
     }
 
     private static IConfiguredWrapperProvider? ResolveProvider(IReadOnlyList<IConfiguredWrapperProvider> providers, DriverInstanceConfiguration configuration)
@@ -164,8 +167,8 @@ public sealed class EngineRuntime : IDisposable
         return providers.FirstOrDefault(p => p.CanCreate(configuration));
     }
 
-    private static bool IsConfiguredProviderType(Type type)
+    private static bool IsDriverModuleType(Type type)
     {
-        return !type.IsAbstract && typeof(IConfiguredWrapperProvider).IsAssignableFrom(type);
+        return !type.IsAbstract && typeof(IDriverModule).IsAssignableFrom(type) && type.GetConstructor(Type.EmptyTypes) != null;
     }
 }

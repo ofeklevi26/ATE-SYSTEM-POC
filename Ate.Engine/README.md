@@ -11,6 +11,7 @@ Engine-specific structure is organized by responsibility:
 
 
 Configured wrapper providers
+- Driver modules (`IDriverModule`) are discovered and register their own DI wiring (factory/provider).
 - `IConfiguredWrapperProvider` is the extension seam for nugget-specific wrapper instantiation.
 - Wrapper operations are now discovered from methods marked with `[DriverOperation]` so operation/parameter metadata no longer needs to be hand-authored in providers.
 - Providers can be discovered from `drivers/*.dll` at startup.

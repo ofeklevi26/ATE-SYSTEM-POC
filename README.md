@@ -52,7 +52,7 @@ ATE-SYSTEM-POC/
 │   │   │   ├── IDmmHardwareDriver.cs      # Hardware-level DMM interface used by wrappers.
 │   │   │   └── IPsuHardwareDriver.cs      # Hardware-level PSU interface used by wrappers.
 │   │   ├── Wrappers/
-│   │   │   ├── ConnectionEndpointResolver.cs # Resolves endpoint string from config/settings (`endpoint` / `endpointFormat`).
+│   │   │   ├── ConnectionEndpointResolver.cs # Deprecated placeholder; endpoint logic now lives inside each provider.
 │   │   │   ├── DmmDeviceWrapper.cs        # DMM engine wrapper translating engine operations to DMM hardware calls.
 │   │   │   └── PsuDeviceWrapper.cs        # PSU engine wrapper translating engine operations to PSU hardware calls.
 │   │   ├── Providers/
@@ -91,14 +91,12 @@ ATE-SYSTEM-POC/
 
 ## Wiring a new nugget wrapper (minimal-change flow)
 
-1. Implement a provider class that implements `IConfiguredWrapperProvider` and returns the wrapper instance (`IDeviceDriver`).
+1. Implement a provider class that implements `IConfiguredWrapperProvider`.
+   - Each provider owns its own connection/endpoint settings and parsing logic (no shared endpoint builder).
    - Capability metadata (`DeviceCommandDefinition`) is auto-generated from wrapper methods marked with `[DriverOperation]`.
-2. Place the provider assembly in `Ate.Engine/drivers` (auto-discovered at startup) or compile it in-engine.
-3. Configure `engine-config.json` for each instance using:
+2. Implement an `IDriverModule` that registers provider + hardware factory into DI.
+3. Place the module/provider assembly in `Ate.Engine/drivers` (auto-discovered) or compile it in-engine.
+4. Configure `engine-config.json` for each instance using:
    - `wrapperProviderType` (provider name/type),
-   - `settings` only (addressing/endpoint/provider-specific keys, e.g. `address`, `resourceName`, `port`, `channel`, `endpointFormat`).
-4. Start engine; UI fetches capabilities dynamically from `/api/capabilities`, so form fields update without UI code changes.
-
-Endpoint formatting helpers are built in:
-- `settings.endpoint` (full override), or
-- `settings.endpointFormat` with tokens (e.g., `{address}`, `{port}`, `{channel}`) and any custom settings key.
+   - provider-specific `settings` keys.
+5. Start engine; UI fetches capabilities dynamically from `/api/capabilities`, so form fields update without UI code changes.
