@@ -152,29 +152,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var capabilities = await _client.GetCapabilitiesAsync();
-            var data = (capabilities == null || capabilities.Count == 0)
-                ? BuildFallbackCatalog().ToList()
-                : capabilities;
-
-            Devices.Clear();
-            foreach (var capability in data)
+            if (capabilities == null || capabilities.Count == 0)
             {
-                Devices.Add(capability);
+                Devices.Clear();
+                SelectedDevice = null;
+                StatusText = "No capabilities returned by engine.";
+                return;
             }
 
-            SelectedDevice = Devices.FirstOrDefault();
+            ApplyCapabilities(capabilities);
         }
         catch
         {
-            var fallback = BuildFallbackCatalog();
             Devices.Clear();
-            foreach (var item in fallback)
-            {
-                Devices.Add(item);
-            }
-
-            SelectedDevice = Devices.FirstOrDefault();
+            SelectedDevice = null;
+            StatusText = "Failed to load capabilities from engine.";
         }
+    }
+
+    private void ApplyCapabilities(IEnumerable<DeviceCommandDefinition> capabilities)
+    {
+        Devices.Clear();
+        foreach (var capability in capabilities)
+        {
+            Devices.Add(capability);
+        }
+
+        SelectedDevice = Devices.FirstOrDefault();
     }
 
     private async Task ExecuteControlAsync(Func<Task> action, string actionName)
@@ -262,73 +266,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ParameterKind.Number => decimal.Parse(raw, CultureInfo.InvariantCulture),
             ParameterKind.Boolean => bool.Parse(raw),
             _ => raw
-        };
-    }
-
-    private static IReadOnlyList<DeviceCommandDefinition> BuildFallbackCatalog()
-    {
-        return new List<DeviceCommandDefinition>
-        {
-            new DeviceCommandDefinition
-            {
-                DeviceType = "DMM",
-                DriverId = "default",
-                DriverParameters = new List<CommandParameterDefinition>
-                {
-                    new CommandParameterDefinition { Name = "channel", Kind = ParameterKind.Integer, Required = true, Nullable = false, Default = "1" }
-                },
-                Operations = new List<CommandOperationDefinition>
-                {
-                    new CommandOperationDefinition
-                    {
-                        Name = "MeasureVoltage",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "range", Kind = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, Nullable = false, Default = "10.0" }
-                        }
-                    },
-                    new CommandOperationDefinition { Name = "Identify" }
-                }
-            },
-            new DeviceCommandDefinition
-            {
-                DeviceType = "PSU",
-                DriverId = "default",
-                DriverParameters = new List<CommandParameterDefinition>
-                {
-                    new CommandParameterDefinition { Name = "channel", Kind = ParameterKind.Integer, Required = true, Nullable = false, Default = "1" }
-                },
-                Operations = new List<CommandOperationDefinition>
-                {
-                    new CommandOperationDefinition
-                    {
-                        Name = "SetVoltage",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "voltage", Kind = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, Required = true, Nullable = false, Default = "5.0" },
-                            new CommandParameterDefinition { Name = "currentLimit", Kind = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, Nullable = false, Default = "1.0" }
-                        }
-                    },
-                    new CommandOperationDefinition
-                    {
-                        Name = "SetCurrentLimit",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "currentLimit", Kind = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, Required = true, Nullable = false, Default = "1.0" }
-                        }
-                    },
-                    new CommandOperationDefinition
-                    {
-                        Name = "SetOutput",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "enabled", Kind = ParameterKind.Boolean, Nullable = false, Default = "true" }
-                        }
-                    },
-                    new CommandOperationDefinition { Name = "OutputOff" },
-                    new CommandOperationDefinition { Name = "Identify" }
-                }
-            }
         };
     }
 
