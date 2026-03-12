@@ -42,15 +42,7 @@ public static class KnownCapabilitiesCatalog
                     ReturnType = "Object",
                     Parameters = new List<CommandParameterDefinition>
                     {
-                        new CommandParameterDefinition
-                        {
-                            Name = "channel",
-                            DisplayName = "Channel",
-                            Description = "Optional channel override.",
-                            Type = ParameterValueType.Integer,
-                            DefaultValue = "1",
-                            ClrType = "Int32?"
-                        }
+                        BuildChannelParameter()
                     }
                 },
                 new CommandOperationDefinition
@@ -66,19 +58,12 @@ public static class KnownCapabilitiesCatalog
                             Name = "range",
                             DisplayName = "Range",
                             Description = "Voltage range in volts used for measurement.",
-                            Type = ParameterValueType.Decimal,
-                            DefaultValue = "10.0",
-                            ClrType = "Decimal"
+                            Kind = ParameterKind.Number,
+                            NumberFormat = NumberFormat.Decimal,
+                            Nullable = false,
+                            Default = "10.0"
                         },
-                        new CommandParameterDefinition
-                        {
-                            Name = "channel",
-                            DisplayName = "Channel",
-                            Description = "Optional channel override.",
-                            Type = ParameterValueType.Integer,
-                            DefaultValue = "1",
-                            ClrType = "Int32?"
-                        }
+                        BuildChannelParameter()
                     }
                 }
             }
@@ -120,19 +105,21 @@ public static class KnownCapabilitiesCatalog
                             Name = "voltage",
                             DisplayName = "Voltage",
                             Description = "Target output voltage in volts.",
-                            Type = ParameterValueType.Decimal,
-                            IsRequired = true,
-                            DefaultValue = "0.0",
-                            ClrType = "Decimal"
+                            Kind = ParameterKind.Number,
+                            NumberFormat = NumberFormat.Decimal,
+                            Required = true,
+                            Nullable = false,
+                            Default = "0.0"
                         },
                         new CommandParameterDefinition
                         {
                             Name = "currentLimit",
                             DisplayName = "Current Limit",
                             Description = "Maximum current in amps.",
-                            Type = ParameterValueType.Decimal,
-                            DefaultValue = "1.0",
-                            ClrType = "Decimal"
+                            Kind = ParameterKind.Number,
+                            NumberFormat = NumberFormat.Decimal,
+                            Nullable = false,
+                            Default = "1.0"
                         },
                         BuildChannelParameter()
                     }
@@ -150,10 +137,11 @@ public static class KnownCapabilitiesCatalog
                             Name = "currentLimit",
                             DisplayName = "Current Limit",
                             Description = "Maximum current in amps.",
-                            Type = ParameterValueType.Decimal,
-                            IsRequired = true,
-                            DefaultValue = "0.0",
-                            ClrType = "Decimal"
+                            Kind = ParameterKind.Number,
+                            NumberFormat = NumberFormat.Decimal,
+                            Required = true,
+                            Nullable = false,
+                            Default = "0.0"
                         },
                         BuildChannelParameter()
                     }
@@ -171,9 +159,9 @@ public static class KnownCapabilitiesCatalog
                             Name = "enabled",
                             DisplayName = "Enabled",
                             Description = "True to enable output, false to disable.",
-                            Type = ParameterValueType.Boolean,
-                            DefaultValue = "true",
-                            ClrType = "Boolean"
+                            Kind = ParameterKind.Boolean,
+                            Nullable = false,
+                            Default = "true"
                         },
                         BuildChannelParameter()
                     }
@@ -200,9 +188,9 @@ public static class KnownCapabilitiesCatalog
             Name = "channel",
             DisplayName = "Channel",
             Description = "Optional channel override.",
-            Type = ParameterValueType.Integer,
-            DefaultValue = "1",
-            ClrType = "Int32?"
+            Kind = ParameterKind.Integer,
+            Nullable = true,
+            Default = "1"
         };
     }
 }

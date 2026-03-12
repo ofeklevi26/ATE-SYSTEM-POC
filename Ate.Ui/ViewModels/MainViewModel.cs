@@ -152,29 +152,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var capabilities = await _client.GetCapabilitiesAsync();
-            var data = (capabilities == null || capabilities.Count == 0)
-                ? BuildFallbackCatalog().ToList()
-                : capabilities;
-
-            Devices.Clear();
-            foreach (var capability in data)
+            if (capabilities == null || capabilities.Count == 0)
             {
-                Devices.Add(capability);
+                Devices.Clear();
+                SelectedDevice = null;
+                StatusText = "No capabilities returned by engine.";
+                return;
             }
 
-            SelectedDevice = Devices.FirstOrDefault();
+            ApplyCapabilities(capabilities);
         }
         catch
         {
-            var fallback = BuildFallbackCatalog();
             Devices.Clear();
-            foreach (var item in fallback)
-            {
-                Devices.Add(item);
-            }
-
-            SelectedDevice = Devices.FirstOrDefault();
+            SelectedDevice = null;
+            StatusText = "Failed to load capabilities from engine.";
         }
+    }
+
+    private void ApplyCapabilities(IEnumerable<DeviceCommandDefinition> capabilities)
+    {
+        Devices.Clear();
+        foreach (var capability in capabilities)
+        {
+            Devices.Add(capability);
+        }
+
+        SelectedDevice = Devices.FirstOrDefault();
     }
 
     private async Task ExecuteControlAsync(Func<Task> action, string actionName)
@@ -254,79 +258,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return string.Empty;
         }
 
-        return input.Type switch
+        return input.Kind switch
         {
-            ParameterValueType.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterValueType.Decimal => decimal.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterValueType.Boolean => bool.Parse(raw),
+            ParameterKind.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterKind.Number when input.NumberFormat == NumberFormat.Double || input.NumberFormat == NumberFormat.Float
+                => double.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterKind.Number => decimal.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterKind.Boolean => bool.Parse(raw),
             _ => raw
-        };
-    }
-
-    private static IReadOnlyList<DeviceCommandDefinition> BuildFallbackCatalog()
-    {
-        return new List<DeviceCommandDefinition>
-        {
-            new DeviceCommandDefinition
-            {
-                DeviceType = "DMM",
-                DriverId = "default",
-                DriverParameters = new List<CommandParameterDefinition>
-                {
-                    new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = "1" }
-                },
-                Operations = new List<CommandOperationDefinition>
-                {
-                    new CommandOperationDefinition
-                    {
-                        Name = "MeasureVoltage",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
-                        }
-                    },
-                    new CommandOperationDefinition { Name = "Identify" }
-                }
-            },
-            new DeviceCommandDefinition
-            {
-                DeviceType = "PSU",
-                DriverId = "default",
-                DriverParameters = new List<CommandParameterDefinition>
-                {
-                    new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = "1" }
-                },
-                Operations = new List<CommandOperationDefinition>
-                {
-                    new CommandOperationDefinition
-                    {
-                        Name = "SetVoltage",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
-                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
-                        }
-                    },
-                    new CommandOperationDefinition
-                    {
-                        Name = "SetCurrentLimit",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
-                        }
-                    },
-                    new CommandOperationDefinition
-                    {
-                        Name = "SetOutput",
-                        Parameters = new List<CommandParameterDefinition>
-                        {
-                            new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
-                        }
-                    },
-                    new CommandOperationDefinition { Name = "OutputOff" },
-                    new CommandOperationDefinition { Name = "Identify" }
-                }
-            }
         };
     }
 
@@ -355,18 +294,25 @@ public sealed class ParameterInputViewModel : INotifyPropertyChanged
     public ParameterInputViewModel(CommandParameterDefinition definition)
     {
         Name = definition.Name;
-        Type = definition.Type;
-        IsRequired = definition.IsRequired;
-        _valueText = definition.DefaultValue ?? string.Empty;
+        Kind = definition.Kind;
+        NumberFormat = definition.NumberFormat;
+        Required = definition.Required;
+        _valueText = definition.Default ?? string.Empty;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public string Name { get; }
 
-    public ParameterValueType Type { get; }
+    public ParameterKind Kind { get; }
 
-    public bool IsRequired { get; }
+    public NumberFormat? NumberFormat { get; }
+
+    public bool Required { get; }
+
+    public string TypeLabel => Kind == ParameterKind.Number && NumberFormat.HasValue
+        ? $"{Kind} ({NumberFormat.Value})"
+        : Kind.ToString();
 
     public string ValueText
     {

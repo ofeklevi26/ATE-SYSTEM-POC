@@ -89,7 +89,7 @@ ATE-SYSTEM-POC/
 2. Modules register hardware services and `ConfiguredWrapperDescriptor` mappings.
 3. Engine loads `engine-config.json` and uses `ConfiguredWrapperRegistrar` + `ConfiguredWrapperFactory` to instantiate wrappers.
 4. `WrapperOperationRuntime` resolves capability contracts from `Ate.Contracts/KnownCapabilitiesCatalog` for known device types (DMM/PSU), and falls back to `[DriverOperation]` reflection for unknown/plugin wrappers. For known families, startup now validates wrapper signatures against catalog contracts and fails fast on drift.
-5. UI calls `GET /api/capabilities`, renders dynamic operation parameter forms, and sends commands to `POST /api/command`.
+5. UI calls `GET /api/capabilities` as its runtime capability source of truth (no client-side baked-in capability fallback), renders dynamic operation parameter forms, and sends commands to `POST /api/command`.
 6. `CommandInvoker` executes queued commands, while status/control endpoints expose and manage queue state.
 
 ## HTTP API summary

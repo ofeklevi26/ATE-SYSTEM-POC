@@ -95,7 +95,7 @@ Cancellation and command failures are logged and surfaced in `LastError`.
 
 `MainViewModel` currently:
 - loads capabilities at startup,
-- falls back to a baked-in DMM/PSU catalog when the engine is unreachable,
+- retrieves capability definitions from `GET /api/capabilities` (engine-driven runtime source),
 - rebuilds parameter inputs from selected device + operation,
 - converts input strings into typed payloads (`int`, `decimal`, `bool`, `string`),
 - polls `/api/status` every second,
@@ -115,4 +115,3 @@ Cancellation and command failures are logged and surfaced in `LastError`.
 3. Add structured logging context (device type, driver id, operation, command id).
 4. Add optional persistence/replay model for queued commands if durability is required.
 5. Keep `KnownCapabilitiesCatalog` synchronized whenever built-in wrapper method signatures change.
-
