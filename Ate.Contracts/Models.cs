@@ -35,12 +35,19 @@ public sealed class EngineStatus
     public List<string> LoadedDrivers { get; set; } = new List<string>();
 }
 
-public enum ParameterValueType
+public enum ParameterKind
 {
     String,
     Integer,
-    Decimal,
+    Number,
     Boolean
+}
+
+public enum NumberFormat
+{
+    Decimal,
+    Float,
+    Double
 }
 
 public sealed class CommandParameterDefinition
@@ -51,13 +58,15 @@ public sealed class CommandParameterDefinition
 
     public string Description { get; set; } = string.Empty;
 
-    public ParameterValueType Type { get; set; } = ParameterValueType.String;
+    public ParameterKind Kind { get; set; } = ParameterKind.String;
 
-    public bool IsRequired { get; set; }
+    public NumberFormat? NumberFormat { get; set; }
 
-    public string? DefaultValue { get; set; }
+    public bool Required { get; set; }
 
-    public string ClrType { get; set; } = string.Empty;
+    public bool Nullable { get; set; }
+
+    public string? Default { get; set; }
 }
 
 public sealed class CommandOperationDefinition
