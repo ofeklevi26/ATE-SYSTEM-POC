@@ -128,13 +128,25 @@ public static class WrapperOperationRuntime
             if (contractParameter.Type != reflectedParameter.Type)
             {
                 throw new InvalidOperationException(
-                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': ParameterValueType mismatch (contract={contractParameter.Type}, wrapper={reflectedParameter.Type}).");
+                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': Type mismatch (contract={contractParameter.Type}, wrapper={reflectedParameter.Type}).");
+            }
+
+            if (contractParameter.NumberFormat != reflectedParameter.NumberFormat)
+            {
+                throw new InvalidOperationException(
+                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': NumberFormat mismatch (contract={contractParameter.NumberFormat}, wrapper={reflectedParameter.NumberFormat}).");
             }
 
             if (contractParameter.IsRequired != reflectedParameter.IsRequired)
             {
                 throw new InvalidOperationException(
                     $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': IsRequired mismatch (contract={contractParameter.IsRequired}, wrapper={reflectedParameter.IsRequired}).");
+            }
+
+            if (contractParameter.Nullable != reflectedParameter.Nullable)
+            {
+                throw new InvalidOperationException(
+                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': Nullable mismatch (contract={contractParameter.Nullable}, wrapper={reflectedParameter.Nullable}).");
             }
         }
     }
@@ -156,13 +168,14 @@ public static class WrapperOperationRuntime
 
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
-        var isRequired = !parameter.HasDefaultValue;
+        var required = !parameter.HasDefaultValue;
         var explicitDefault = parameter.HasDefaultValue && parameter.DefaultValue != null
             ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
             : null;
         var defaultValue = explicitDefault
             ?? GetParameterSpecificDefaultValueString(parameter)
             ?? GetImplicitDefaultValueString(parameter.ParameterType);
+        var nullable = !parameter.ParameterType.IsValueType || Nullable.GetUnderlyingType(parameter.ParameterType) != null;
 
         var name = parameter.Name ?? string.Empty;
 
@@ -171,10 +184,11 @@ public static class WrapperOperationRuntime
             Name = name,
             DisplayName = name,
             Description = string.Empty,
-            Type = MapParameterType(parameter.ParameterType),
-            IsRequired = isRequired,
-            DefaultValue = defaultValue,
-            ClrType = GetTypeDisplayName(parameter.ParameterType)
+            Type = MapParameterKind(parameter.ParameterType),
+            NumberFormat = MapNumberFormat(parameter.ParameterType),
+            IsRequired = required,
+            Nullable = nullable,
+            DefaultValue = defaultValue
         };
     }
 
@@ -198,26 +212,49 @@ public static class WrapperOperationRuntime
         return $"{genericName}<{genericArgs}>";
     }
 
-    private static ParameterValueType MapParameterType(Type type)
+    private static ParameterKind MapParameterKind(Type type)
     {
         var effectiveType = Nullable.GetUnderlyingType(type) ?? type;
 
         if (effectiveType == typeof(int) || effectiveType == typeof(long))
         {
-            return ParameterValueType.Integer;
+            return ParameterKind.Integer;
         }
 
         if (effectiveType == typeof(decimal) || effectiveType == typeof(double) || effectiveType == typeof(float))
         {
-            return ParameterValueType.Decimal;
+            return ParameterKind.Number;
         }
 
         if (effectiveType == typeof(bool))
         {
-            return ParameterValueType.Boolean;
+            return ParameterKind.Boolean;
         }
 
-        return ParameterValueType.String;
+        return ParameterKind.String;
+    }
+
+
+    private static NumberFormat? MapNumberFormat(Type type)
+    {
+        var effectiveType = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (effectiveType == typeof(decimal))
+        {
+            return NumberFormat.Decimal;
+        }
+
+        if (effectiveType == typeof(float))
+        {
+            return NumberFormat.Float;
+        }
+
+        if (effectiveType == typeof(double))
+        {
+            return NumberFormat.Double;
+        }
+
+        return null;
     }
 
     private static object?[] BindParameters(MethodInfo method, IReadOnlyDictionary<string, object> provided)

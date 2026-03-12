@@ -256,9 +256,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         return input.Type switch
         {
-            ParameterValueType.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterValueType.Decimal => decimal.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterValueType.Boolean => bool.Parse(raw),
+            ParameterKind.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterKind.Number when input.NumberFormat == NumberFormat.Double || input.NumberFormat == NumberFormat.Float
+                => double.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterKind.Number => decimal.Parse(raw, CultureInfo.InvariantCulture),
+            ParameterKind.Boolean => bool.Parse(raw),
             _ => raw
         };
     }
@@ -273,7 +275,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 DriverId = "default",
                 DriverParameters = new List<CommandParameterDefinition>
                 {
-                    new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = "1" }
+                    new CommandParameterDefinition { Name = "channel", Type = ParameterKind.Integer, IsRequired = true, Nullable = false, DefaultValue = "1" }
                 },
                 Operations = new List<CommandOperationDefinition>
                 {
@@ -282,7 +284,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         Name = "MeasureVoltage",
                         Parameters = new List<CommandParameterDefinition>
                         {
-                            new CommandParameterDefinition { Name = "range", Type = ParameterValueType.Decimal, DefaultValue = "10.0" }
+                            new CommandParameterDefinition { Name = "range", Type = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, Nullable = false, DefaultValue = "10.0" }
                         }
                     },
                     new CommandOperationDefinition { Name = "Identify" }
@@ -294,7 +296,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 DriverId = "default",
                 DriverParameters = new List<CommandParameterDefinition>
                 {
-                    new CommandParameterDefinition { Name = "channel", Type = ParameterValueType.Integer, IsRequired = true, DefaultValue = "1" }
+                    new CommandParameterDefinition { Name = "channel", Type = ParameterKind.Integer, IsRequired = true, Nullable = false, DefaultValue = "1" }
                 },
                 Operations = new List<CommandOperationDefinition>
                 {
@@ -303,8 +305,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         Name = "SetVoltage",
                         Parameters = new List<CommandParameterDefinition>
                         {
-                            new CommandParameterDefinition { Name = "voltage", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "5.0" },
-                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, DefaultValue = "1.0" }
+                            new CommandParameterDefinition { Name = "voltage", Type = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, IsRequired = true, Nullable = false, DefaultValue = "5.0" },
+                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, Nullable = false, DefaultValue = "1.0" }
                         }
                     },
                     new CommandOperationDefinition
@@ -312,7 +314,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         Name = "SetCurrentLimit",
                         Parameters = new List<CommandParameterDefinition>
                         {
-                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterValueType.Decimal, IsRequired = true, DefaultValue = "1.0" }
+                            new CommandParameterDefinition { Name = "currentLimit", Type = ParameterKind.Number, NumberFormat = NumberFormat.Decimal, IsRequired = true, Nullable = false, DefaultValue = "1.0" }
                         }
                     },
                     new CommandOperationDefinition
@@ -320,7 +322,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         Name = "SetOutput",
                         Parameters = new List<CommandParameterDefinition>
                         {
-                            new CommandParameterDefinition { Name = "enabled", Type = ParameterValueType.Boolean, DefaultValue = "true" }
+                            new CommandParameterDefinition { Name = "enabled", Type = ParameterKind.Boolean, Nullable = false, DefaultValue = "true" }
                         }
                     },
                     new CommandOperationDefinition { Name = "OutputOff" },
@@ -356,6 +358,7 @@ public sealed class ParameterInputViewModel : INotifyPropertyChanged
     {
         Name = definition.Name;
         Type = definition.Type;
+        NumberFormat = definition.NumberFormat;
         IsRequired = definition.IsRequired;
         _valueText = definition.DefaultValue ?? string.Empty;
     }
@@ -364,9 +367,15 @@ public sealed class ParameterInputViewModel : INotifyPropertyChanged
 
     public string Name { get; }
 
-    public ParameterValueType Type { get; }
+    public ParameterKind Type { get; }
+
+    public NumberFormat? NumberFormat { get; }
 
     public bool IsRequired { get; }
+
+    public string TypeLabel => Type == ParameterKind.Number && NumberFormat.HasValue
+        ? $"{Type} ({NumberFormat.Value})"
+        : Type.ToString();
 
     public string ValueText
     {

@@ -93,7 +93,7 @@ For stable client integration, add your family to `Ate.Contracts/KnownCapabiliti
 At minimum, define:
 - `DeviceType`, `DriverId`, `DriverDisplayName`, `DriverDescription`
 - all operation names and parameter names exactly as wrapper method signatures
-- `ParameterValueType`, `IsRequired`, and `DefaultValue` values that match runtime behavior
+- `Type`, optional `NumberFormat`, `IsRequired`, `Nullable`, and `DefaultValue` values that match runtime behavior
 
 If omitted, `/api/capabilities` still works via reflection fallback, but the schema is not centrally versioned in contracts.
 
