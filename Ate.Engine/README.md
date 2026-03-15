@@ -24,10 +24,10 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 
 ## API controllers
 
-- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand` (request `driverId` should match a configured `engine-config.json` driver entry, or omit it to use default resolution; logs display default as `<default-driver>`).
+- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand` (request `driverId` should match a configured `engine-config.json` driver entry, or omit it to use default resolution; logs display omitted `driverId` as `default`).
 - `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers (kept log-silent to avoid poll-noise).
 - `EngineController` (`api/engine/*`): pause/resume/clear/abort-current controls.
-- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data and logs a summary of device/driver definitions and operation counts; logs also clarify that `driverId` comes from `engine-config.json` and is passed by clients in `POST /api/command` (`<default-driver>` denotes omitted/implicit default).
+- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data and logs a summary of device/driver definitions and operation counts; logs also clarify that `driverId` comes from `engine-config.json` and is passed by clients in `POST /api/command` (`default` denotes omitted/implicit default).
 
 ## Configured wrapper model
 

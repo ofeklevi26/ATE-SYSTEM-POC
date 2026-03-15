@@ -106,7 +106,7 @@ ATE-SYSTEM-POC/
 Engine base address is `http://localhost:9000/`.
 
 Engine logging is wired through Serilog (console + rolling file logs under `Ate.Engine/bin/<Configuration>/net472/logs`).
-Logs use `<default-driver>` to represent omitted/implicit default driver resolution.
+Logs use `default` to represent omitted/implicit default driver resolution.
 
 ## Quick start
 

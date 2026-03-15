@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using System.Web.Http;
 using Ate.Engine.Drivers;
@@ -26,17 +25,10 @@ public sealed class CapabilitiesController : ApiController
         var operationCount = definitions.Sum(d => d.Operations.Count);
         var summary = definitions.Count == 0
             ? "none"
-            : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{FormatDriverId(d.DriverId)} ({d.Operations.Count} ops)"));
+            : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverId} ({d.Operations.Count} ops)"));
 
         _logger.Info(
-            $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (driverId source: set per device in engine-config.json, then send that value in POST /api/command request.driverId; '<default-driver>' is used when driverId is omitted).");
+            $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (driverId source: set per device in engine-config.json; clients send that value in POST /api/command request.driverId. If omitted, engine resolves driverId='default' when available).");
         return Ok(definitions);
-    }
-
-    private static string FormatDriverId(string driverId)
-    {
-        return string.Equals(driverId, "default", StringComparison.OrdinalIgnoreCase)
-            ? "<default-driver>"
-            : driverId;
     }
 }

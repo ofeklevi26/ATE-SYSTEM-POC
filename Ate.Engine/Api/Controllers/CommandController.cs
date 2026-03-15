@@ -44,7 +44,7 @@ public sealed class CommandController : ApiController
             _logger);
 
         _commandInvoker.Enqueue(command);
-        _logger.Info($"Command enqueued: {request.DeviceType}/{FormatDriverId(request.DriverId)}::{request.Operation} (serverCommandId={id}).");
+        _logger.Info($"Command enqueued: {request.DeviceType}/{ResolveDriverIdForLog(request.DriverId)}::{request.Operation} (serverCommandId={id}).");
 
         return Ok(new DeviceCommandResponse
         {
@@ -53,10 +53,8 @@ public sealed class CommandController : ApiController
         });
     }
 
-    private static string FormatDriverId(string? driverId)
+    private static string ResolveDriverIdForLog(string? driverId)
     {
-        return string.IsNullOrWhiteSpace(driverId) || string.Equals(driverId, "default", StringComparison.OrdinalIgnoreCase)
-            ? "<default-driver>"
-            : driverId;
+        return string.IsNullOrWhiteSpace(driverId) ? "default" : driverId;
     }
 }
