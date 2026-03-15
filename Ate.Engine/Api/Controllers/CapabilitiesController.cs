@@ -29,7 +29,7 @@ public sealed class CapabilitiesController : ApiController
             : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{FormatDriverId(d.DriverId)} ({d.Operations.Count} ops)"));
 
         _logger.Info(
-            $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (note: '<default-driver>' means the default driverId used when requests omit a specific driverId).");
+            $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (driverId source: set per device in engine-config.json, then send that value in POST /api/command request.driverId; '<default-driver>' is used when driverId is omitted).");
         return Ok(definitions);
     }
 

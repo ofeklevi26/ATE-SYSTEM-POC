@@ -45,6 +45,10 @@ For unknown/plugin families, capabilities come from reflection fallback on wrapp
 
 Body shape (`DeviceCommandRequest`):
 
+`driverId` selection rule:
+- Use the `driverId` values returned by `GET /api/capabilities` (those come from engine `engine-config.json`).
+- If you omit `driverId`, engine resolves the device `default` registration when available.
+
 ```json
 {
   "deviceType": "PSU",

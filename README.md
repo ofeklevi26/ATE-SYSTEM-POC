@@ -96,7 +96,7 @@ ATE-SYSTEM-POC/
 ## HTTP API summary
 
 - `GET /api/capabilities` → available devices + operations + parameters.
-- `POST /api/command` → enqueue command.
+- `POST /api/command` → enqueue command (`driverId` in request should match a configured engine `driverId`; if omitted, engine tries `default`).
 - `GET /api/status` → engine state, queue depth, current command, last error, loaded drivers.
 - `POST /api/engine/pause`
 - `POST /api/engine/resume`
@@ -130,6 +130,7 @@ Each driver entry uses:
 - `deviceType` (logical family, e.g., `DMM`)
 - `driverId` (instance selector)
   - Use `default` for the canonical/fallback driver instance for a device family.
+  - This exact value is what clients send as `driverId` in `POST /api/command`.
 - `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
 - `settings` (string dictionary used for wrapper constructor binding)
 
