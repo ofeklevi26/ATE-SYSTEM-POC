@@ -30,8 +30,9 @@ ATE-SYSTEM-POC/
 │   │       └── StatusController.cs
 │   ├── Common/
 │   │   ├── Infrastructure/
-│   │   │   ├── ConsoleLogger.cs
-│   │   │   └── ILogger.cs
+│   │   │   ├── ILogger.cs
+│   │   │   ├── SerilogBootstrapper.cs
+│   │   │   └── SerilogLogger.cs
 │   │   └── Serialization/
 │   │       └── ParameterValueNormalizer.cs
 │   ├── Core/
@@ -95,14 +96,26 @@ ATE-SYSTEM-POC/
 ## HTTP API summary
 
 - `GET /api/capabilities` → available devices + operations + parameters.
-- `POST /api/command` → enqueue command.
+- `POST /api/command` → enqueue command (`driverId` in request should match a configured engine `driverId`; if omitted, engine tries `default`).
 - `GET /api/status` → engine state, queue depth, current command, last error, loaded drivers.
 - `POST /api/engine/pause`
 - `POST /api/engine/resume`
 - `POST /api/engine/clear`
 - `POST /api/engine/abort-current`
 
+## Who chooses the driver? (client vs engine)
+
+- **Client chooses target intent** by sending `deviceType` + optional `driverId` in `POST /api/command`.
+- **Engine performs final resolution** in this order:
+  1. exact `deviceType::driverId` (when client provides `driverId`),
+  2. `deviceType::default`,
+  3. first available `deviceType::*` fallback registration.
+- Therefore, to target a specific non-default instance, define it in `engine-config.json` and send that exact `driverId` from the client.
+
 Engine base address is `http://localhost:9000/`.
+
+Engine logging is wired through Serilog (console + rolling file logs under `Ate.Engine/bin/<Configuration>/net472/logs`).
+Logs use `default` to represent omitted/implicit default driver resolution.
 
 ## Quick start
 
@@ -126,6 +139,9 @@ dotnet run --project Ate.Ui/Ate.Ui.csproj
 Each driver entry uses:
 - `deviceType` (logical family, e.g., `DMM`)
 - `driverId` (instance selector)
+  - Use `default` for the canonical/fallback driver instance for a device family.
+  - This exact value is what clients send as `driverId` in `POST /api/command`.
+  - To use another instance, add another entry in `engine-config.json` with the same `deviceType` and a different `driverId` (for example `psu-lab2`), then send that `driverId` in command requests.
 - `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
 - `settings` (string dictionary used for wrapper constructor binding)
 

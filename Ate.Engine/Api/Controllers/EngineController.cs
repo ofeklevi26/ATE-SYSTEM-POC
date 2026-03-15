@@ -1,5 +1,6 @@
 using System.Web.Http;
 using Ate.Engine.Commands;
+using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.Controllers;
 
@@ -7,10 +8,12 @@ namespace Ate.Engine.Controllers;
 public sealed class EngineController : ApiController
 {
     private readonly CommandInvoker _commandInvoker;
+    private readonly ILogger _logger;
 
-    public EngineController(CommandInvoker commandInvoker)
+    public EngineController(CommandInvoker commandInvoker, ILogger logger)
     {
         _commandInvoker = commandInvoker;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -18,6 +21,7 @@ public sealed class EngineController : ApiController
     public IHttpActionResult Pause()
     {
         _commandInvoker.Pause();
+        _logger.Info("Engine queue paused by API request.");
         return Ok();
     }
 
@@ -26,6 +30,7 @@ public sealed class EngineController : ApiController
     public IHttpActionResult Resume()
     {
         _commandInvoker.Resume();
+        _logger.Info("Engine queue resumed by API request.");
         return Ok();
     }
 
@@ -34,6 +39,7 @@ public sealed class EngineController : ApiController
     public IHttpActionResult Clear()
     {
         _commandInvoker.ClearPending();
+        _logger.Info("Engine queue cleared by API request.");
         return Ok();
     }
 
@@ -42,6 +48,7 @@ public sealed class EngineController : ApiController
     public IHttpActionResult AbortCurrent()
     {
         _commandInvoker.AbortCurrent();
+        _logger.Info("Current command abort requested via API.");
         return Ok();
     }
 }
