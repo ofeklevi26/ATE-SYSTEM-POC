@@ -132,6 +132,7 @@ Each driver entry uses:
 - `driverId` (instance selector)
   - Use `default` for the canonical/fallback driver instance for a device family.
   - This exact value is what clients send as `driverId` in `POST /api/command`.
+  - To use another instance, add another entry in `engine-config.json` with the same `deviceType` and a different `driverId` (for example `psu-lab2`), then send that `driverId` in command requests.
 - `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
 - `settings` (string dictionary used for wrapper constructor binding)
 

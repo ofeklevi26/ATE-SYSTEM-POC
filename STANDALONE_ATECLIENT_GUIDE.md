@@ -48,6 +48,7 @@ Body shape (`DeviceCommandRequest`):
 `driverId` selection rule:
 - Use the `driverId` values returned by `GET /api/capabilities` (those come from engine `engine-config.json`).
 - If you omit `driverId`, engine resolves the device `default` registration when available.
+- To target a different instrument instance, configure another `driverId` in `engine-config.json` and send that value in `POST /api/command`.
 
 ```json
 {
@@ -60,6 +61,22 @@ Body shape (`DeviceCommandRequest`):
     "channel": 1
   },
   "clientRequestId": "my-op-0001"
+}
+```
+
+
+Example for a non-default instance (must exist in `engine-config.json`):
+
+```json
+{
+  "deviceType": "PSU",
+  "driverId": "psu-lab2",
+  "operation": "SetVoltage",
+  "parameters": {
+    "voltage": 12.0,
+    "currentLimit": 2.0,
+    "channel": 1
+  }
 }
 ```
 
