@@ -12,21 +12,29 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 
 ## Startup sequence (`EngineRuntime.Start`)
 
-1. Load plugin assemblies from `<engine base dir>/drivers/*.dll`.
-2. Discover `IDriverModule` implementations from built-in and plugin assemblies.
-3. Build DI container with logger, registry, invoker, registrar, and API controllers.
-4. Load `engine-config.json` into `EngineConfiguration`.
-5. Register configured wrappers from config.
-6. Load any direct `IDeviceDriver` plugin implementations via `DriverLoader`.
-7. Start command invoker worker.
-8. Start OWIN host and Web API routes.
+1. Initialize Serilog (console + rolling file logs in `<engine base dir>/logs`).
+2. Load plugin assemblies from `<engine base dir>/drivers/*.dll`.
+3. Discover `IDriverModule` implementations from built-in and plugin assemblies.
+4. Build DI container with logger, registry, invoker, registrar, and API controllers.
+5. Load `engine-config.json` into `EngineConfiguration`.
+6. Register configured wrappers from config.
+7. Load any direct `IDeviceDriver` plugin implementations via `DriverLoader`.
+8. Start command invoker worker.
+9. Start OWIN host and Web API routes.
+
+## Driver selection responsibility
+
+- At startup, engine registers configured wrappers/driver instances from `engine-config.json` into `DriverRegistry`.
+- Client request (`POST /api/command`) specifies `deviceType` and optional `driverId` per command.
+- Engine resolves the concrete driver per command from that preloaded registry: explicit id -> `default` -> first device-type match.
+- If you need deterministic non-default routing, configure a unique `driverId` in `engine-config.json` and send that exact value.
 
 ## API controllers
 
-- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand`.
-- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers.
+- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand` (request `driverId` must match a configured `engine-config.json` driver entry; omit it to use default resolution, or provide another configured id to target a different instance).
+- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers (kept log-silent to avoid poll-noise).
 - `EngineController` (`api/engine/*`): pause/resume/clear/abort-current controls.
-- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data.
+- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data and logs a summary of device/driver definitions and operation counts; logs also clarify that `driverId` comes from `engine-config.json` and is passed by clients in `POST /api/command` (`default` denotes omitted/implicit default).
 
 ## Configured wrapper model
 
@@ -49,3 +57,10 @@ No per-device configured-wrapper provider class is required.
 - State review and design notes: `../PROJECT_STATE_REVIEW.md`
 - Module-specific conventions: `DeviceIntegration/Modules/README.md`
 
+
+
+## Logging
+
+- `ILogger` remains the engine logging abstraction.
+- `SerilogBootstrapper` configures Serilog sinks (console + rolling file).
+- `SerilogLogger` adapts Serilog into the engine `ILogger` interface so existing components log without direct Serilog dependency.

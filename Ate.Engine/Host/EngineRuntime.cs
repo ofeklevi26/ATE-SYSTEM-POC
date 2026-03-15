@@ -32,11 +32,12 @@ public sealed class EngineRuntime : IDisposable
 
     public static EngineRuntime Start()
     {
-        var bootLogger = new ConsoleLogger();
+        var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        var bootLogger = SerilogBootstrapper.CreateLogger(baseDirectory);
         var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
         var pluginAssemblies = DiscoverDriverAssemblies(driversPath, bootLogger);
 
-        var services = BuildServiceCollection(pluginAssemblies);
+        var services = BuildServiceCollection(pluginAssemblies, bootLogger);
         var serviceProvider = services.BuildServiceProvider();
 
         var logger = serviceProvider.GetRequiredService<ILogger>();
@@ -65,12 +66,13 @@ public sealed class EngineRuntime : IDisposable
     {
         _webApp.Dispose();
         _invoker.StopAsync().GetAwaiter().GetResult();
+        SerilogBootstrapper.Shutdown();
     }
 
-    private static ServiceCollection BuildServiceCollection(IReadOnlyList<Assembly> pluginAssemblies)
+    private static ServiceCollection BuildServiceCollection(IReadOnlyList<Assembly> pluginAssemblies, ILogger logger)
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ILogger, ConsoleLogger>();
+        services.AddSingleton(logger);
         services.AddSingleton<DriverRegistry>();
         services.AddSingleton<CommandInvoker>();
         services.AddSingleton<ConfiguredWrapperRegistrar>();

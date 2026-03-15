@@ -77,6 +77,12 @@ Duplicate operation names on a wrapper type throw an error.
 
 Cancellation and command failures are logged and surfaced in `LastError`.
 
+## 6.1) Driver selection lifecycle
+
+- Startup phase: configured wrappers/drivers are loaded and registered in `DriverRegistry`.
+- Command phase: each `POST /api/command` resolves a driver using `(deviceType, driverId)` with fallback to `default` and then first device-type match.
+- Practical rule: client chooses intent by sending `driverId`; engine chooses final match from preloaded registrations.
+
 ## 7) Built-in integrations
 
 - **DMM**

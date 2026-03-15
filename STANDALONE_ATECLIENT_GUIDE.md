@@ -28,6 +28,17 @@ For a headless integration you typically need:
 
 ---
 
+## Who chooses the driver?
+
+Both, in different roles:
+- The **engine preloads available drivers at startup** from `engine-config.json` (and plugin registrations).
+- The **client chooses intent per command** by sending `driverId` in `POST /api/command`.
+- The **engine chooses final match per command** using resolution order (exact id -> `default` -> first matching registration).
+
+If you want a specific instrument every time, always send that specific configured `driverId`.
+
+---
+
 ## API workflow for another client
 
 ### 1) Discover capabilities
@@ -45,6 +56,11 @@ For unknown/plugin families, capabilities come from reflection fallback on wrapp
 
 Body shape (`DeviceCommandRequest`):
 
+`driverId` selection rule:
+- Use the `driverId` values returned by `GET /api/capabilities` (those come from engine `engine-config.json`).
+- If you omit `driverId`, engine resolves the device `default` registration when available.
+- To target a different instrument instance, configure another `driverId` in `engine-config.json` and send that value in `POST /api/command`.
+
 ```json
 {
   "deviceType": "PSU",
@@ -56,6 +72,22 @@ Body shape (`DeviceCommandRequest`):
     "channel": 1
   },
   "clientRequestId": "my-op-0001"
+}
+```
+
+
+Example for a non-default instance (must exist in `engine-config.json`):
+
+```json
+{
+  "deviceType": "PSU",
+  "driverId": "psu-lab2",
+  "operation": "SetVoltage",
+  "parameters": {
+    "voltage": 12.0,
+    "currentLimit": 2.0,
+    "channel": 1
+  }
 }
 ```
 
