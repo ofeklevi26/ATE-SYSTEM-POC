@@ -25,7 +25,7 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 ## API controllers
 
 - `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand`.
-- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers.
+- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers (kept log-silent to avoid poll-noise).
 - `EngineController` (`api/engine/*`): pause/resume/clear/abort-current controls.
 - `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data.
 
