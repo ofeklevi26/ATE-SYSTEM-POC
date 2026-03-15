@@ -20,7 +20,7 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 6. Register configured wrappers from config.
 7. Load any direct `IDeviceDriver` plugin implementations via `DriverLoader`.
 8. Start command invoker worker.
-9. Start OWIN host and Web API routes.
+9. Start OWIN host and Web API routes (with global unhandled API exception logging).
 
 ## Driver selection responsibility
 
@@ -32,7 +32,7 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 ## API controllers
 
 - `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand` (request `driverId` must match a configured `engine-config.json` driver entry; omit it to use default resolution, or provide another configured id to target a different instance).
-- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers (kept log-silent to avoid poll-noise).
+- `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers; errors are logged and surfaced as 500 responses.
 - `EngineController` (`api/engine/*`): pause/resume/clear/abort-current controls.
 - `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data and logs a summary of device/driver definitions and operation counts; logs also clarify that `driverId` comes from `engine-config.json` and is passed by clients in `POST /api/command` (`default` denotes omitted/implicit default).
 
@@ -65,3 +65,5 @@ No per-device configured-wrapper provider class is required.
 - `ILogger` remains the engine logging abstraction.
 - `SerilogBootstrapper` configures Serilog sinks (console + rolling file).
 - `SerilogLogger` adapts Serilog into the engine `ILogger` interface so existing components log without direct Serilog dependency.
+- `ApiExceptionLogger` captures unhandled Web API pipeline exceptions with request/controller/action context.
+- `EngineRuntime.Start` and `Dispose` log startup/shutdown failures (including module discovery/reflection errors) before rethrowing or continuing cleanup.

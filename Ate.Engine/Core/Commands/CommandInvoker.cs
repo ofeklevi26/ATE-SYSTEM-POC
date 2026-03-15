@@ -76,8 +76,9 @@ public sealed class CommandInvoker
             {
                 await worker.ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                _logger.Info($"Command worker stopped due to cancellation: {ex.Message}");
             }
         }
 
