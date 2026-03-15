@@ -154,7 +154,9 @@ Special constructor binding behavior for configured wrappers:
 
 ## Extensibility
 
-To add a new device family, follow `ADD_NEW_DRIVER.md`.
+To add a new device family, follow `ADD_NEW_DRIVER.md` (configured-wrapper path).
+
+For direct plugin assemblies loaded from `drivers/*.dll`, see `ADD_DLL_DRIVER.md`.
 
 
 
