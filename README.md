@@ -30,8 +30,9 @@ ATE-SYSTEM-POC/
 │   │       └── StatusController.cs
 │   ├── Common/
 │   │   ├── Infrastructure/
-│   │   │   ├── ConsoleLogger.cs
-│   │   │   └── ILogger.cs
+│   │   │   ├── ILogger.cs
+│   │   │   ├── SerilogBootstrapper.cs
+│   │   │   └── SerilogLogger.cs
 │   │   └── Serialization/
 │   │       └── ParameterValueNormalizer.cs
 │   ├── Core/
@@ -95,7 +96,7 @@ ATE-SYSTEM-POC/
 ## HTTP API summary
 
 - `GET /api/capabilities` → available devices + operations + parameters.
-- `POST /api/command` → enqueue command.
+- `POST /api/command` → enqueue command (`driverId` in request should match a configured engine `driverId`; if omitted, engine tries `default`).
 - `GET /api/status` → engine state, queue depth, current command, last error, loaded drivers.
 - `POST /api/engine/pause`
 - `POST /api/engine/resume`
@@ -103,6 +104,8 @@ ATE-SYSTEM-POC/
 - `POST /api/engine/abort-current`
 
 Engine base address is `http://localhost:9000/`.
+
+Engine logging is wired through Serilog (console + rolling file logs under `Ate.Engine/bin/<Configuration>/net472/logs`).
 
 ## Quick start
 
@@ -126,6 +129,8 @@ dotnet run --project Ate.Ui/Ate.Ui.csproj
 Each driver entry uses:
 - `deviceType` (logical family, e.g., `DMM`)
 - `driverId` (instance selector)
+  - Use `default` for the canonical/fallback driver instance for a device family.
+  - This exact value is what clients send as `driverId` in `POST /api/command`.
 - `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
 - `settings` (string dictionary used for wrapper constructor binding)
 

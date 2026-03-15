@@ -28,6 +28,7 @@ public sealed class CommandController : ApiController
     {
         if (request == null || string.IsNullOrWhiteSpace(request.DeviceType) || string.IsNullOrWhiteSpace(request.Operation))
         {
+            _logger.Error("Rejected command request because DeviceType or Operation is missing.");
             return BadRequest("DeviceType and Operation are required.");
         }
 
@@ -43,6 +44,7 @@ public sealed class CommandController : ApiController
             _logger);
 
         _commandInvoker.Enqueue(command);
+        _logger.Info($"Command enqueued: {request.DeviceType}/{request.DriverId ?? "default"}::{request.Operation} (serverCommandId={id}).");
 
         return Ok(new DeviceCommandResponse
         {
