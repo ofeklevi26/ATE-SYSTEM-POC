@@ -3,6 +3,7 @@ using System.Web.Http;
 using Ate.Contracts;
 using Ate.Engine.Commands;
 using Ate.Engine.Drivers;
+using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.Controllers;
 
@@ -11,11 +12,13 @@ public sealed class StatusController : ApiController
 {
     private readonly CommandInvoker _commandInvoker;
     private readonly DriverRegistry _driverRegistry;
+    private readonly ILogger _logger;
 
-    public StatusController(CommandInvoker commandInvoker, DriverRegistry driverRegistry)
+    public StatusController(CommandInvoker commandInvoker, DriverRegistry driverRegistry, ILogger logger)
     {
         _commandInvoker = commandInvoker;
         _driverRegistry = driverRegistry;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -31,6 +34,7 @@ public sealed class StatusController : ApiController
             LoadedDrivers = new List<string>(_driverRegistry.GetLoadedDrivers())
         };
 
+        _logger.Info($"Status requested: state={status.State}, queueLength={status.QueueLength}, currentCommand={status.CurrentCommand ?? "none"}.");
         return Ok(status);
     }
 }

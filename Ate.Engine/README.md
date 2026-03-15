@@ -12,14 +12,15 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 
 ## Startup sequence (`EngineRuntime.Start`)
 
-1. Load plugin assemblies from `<engine base dir>/drivers/*.dll`.
-2. Discover `IDriverModule` implementations from built-in and plugin assemblies.
-3. Build DI container with logger, registry, invoker, registrar, and API controllers.
-4. Load `engine-config.json` into `EngineConfiguration`.
-5. Register configured wrappers from config.
-6. Load any direct `IDeviceDriver` plugin implementations via `DriverLoader`.
-7. Start command invoker worker.
-8. Start OWIN host and Web API routes.
+1. Initialize Serilog (console + rolling file logs in `<engine base dir>/logs`).
+2. Load plugin assemblies from `<engine base dir>/drivers/*.dll`.
+3. Discover `IDriverModule` implementations from built-in and plugin assemblies.
+4. Build DI container with logger, registry, invoker, registrar, and API controllers.
+5. Load `engine-config.json` into `EngineConfiguration`.
+6. Register configured wrappers from config.
+7. Load any direct `IDeviceDriver` plugin implementations via `DriverLoader`.
+8. Start command invoker worker.
+9. Start OWIN host and Web API routes.
 
 ## API controllers
 
@@ -49,3 +50,10 @@ No per-device configured-wrapper provider class is required.
 - State review and design notes: `../PROJECT_STATE_REVIEW.md`
 - Module-specific conventions: `DeviceIntegration/Modules/README.md`
 
+
+
+## Logging
+
+- `ILogger` remains the engine logging abstraction.
+- `SerilogBootstrapper` configures Serilog sinks (console + rolling file).
+- `SerilogLogger` adapts Serilog into the engine `ILogger` interface so existing components log without direct Serilog dependency.

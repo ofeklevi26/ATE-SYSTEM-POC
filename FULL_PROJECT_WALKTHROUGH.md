@@ -94,6 +94,7 @@ Contract-first metadata for known families.
 - Console executable targeting `net472`.
 - Uses OWIN self-host (`Microsoft.AspNet.WebApi.OwinSelfHost`, `Microsoft.Owin.Host.HttpListener`).
 - Uses Newtonsoft JSON and Microsoft DI.
+- Uses Serilog with console and rolling file sinks.
 - Copies `engine-config.json` to output.
 
 ### `Ate.Engine/engine-config.json`
@@ -112,7 +113,7 @@ Contract-first metadata for known families.
 The boot orchestrator.
 
 - `Start()` executes startup sequence:
-  1. create bootstrap logger,
+  1. create Serilog bootstrap logger (console + rolling file),
   2. discover plugin assemblies from `drivers/*.dll`,
   3. build DI (`BuildServiceCollection`),
   4. resolve key services (`DriverRegistry`, `CommandInvoker`, registrar),
@@ -121,7 +122,7 @@ The boot orchestrator.
   7. load plugin drivers via `DriverLoader`,
   8. start `CommandInvoker`,
   9. start OWIN host at `http://localhost:9000/` with `Startup`.
-- `Dispose()` stops host + queue worker.
+- `Dispose()` stops host + queue worker and flushes Serilog.
 - `BuildServiceCollection()` registers infra, modules, controllers.
 - `DiscoverDriverAssemblies()` safely loads plugin DLLs.
 - `DiscoverDriverModules()` scans built-in + plugin assemblies for `IDriverModule` implementations.
@@ -148,9 +149,14 @@ The boot orchestrator.
 ### `Ate.Engine/Common/Infrastructure/ILogger.cs`
 - Minimal abstraction: `Info` and `Error`.
 
-### `Ate.Engine/Common/Infrastructure/ConsoleLogger.cs`
-- Colored console logging implementation.
-- Info in cyan, error in red.
+### `Ate.Engine/Common/Infrastructure/SerilogBootstrapper.cs`
+- Builds the process-wide Serilog pipeline.
+- Configures console output and daily rolling log files under `<base>/logs/engine-*.log`.
+- Provides explicit shutdown/flush via `Log.CloseAndFlush()`.
+
+### `Ate.Engine/Common/Infrastructure/SerilogLogger.cs`
+- Adapter from `Serilog.ILogger` to engine `ILogger`.
+- Maps `Info` and `Error` calls to Serilog events.
 
 ### `Ate.Engine/Common/Serialization/ParameterValueNormalizer.cs`
 Normalizes JSON-bound command parameters.

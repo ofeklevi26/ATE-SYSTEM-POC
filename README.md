@@ -30,8 +30,9 @@ ATE-SYSTEM-POC/
 │   │       └── StatusController.cs
 │   ├── Common/
 │   │   ├── Infrastructure/
-│   │   │   ├── ConsoleLogger.cs
-│   │   │   └── ILogger.cs
+│   │   │   ├── ILogger.cs
+│   │   │   ├── SerilogBootstrapper.cs
+│   │   │   └── SerilogLogger.cs
 │   │   └── Serialization/
 │   │       └── ParameterValueNormalizer.cs
 │   ├── Core/
@@ -103,6 +104,8 @@ ATE-SYSTEM-POC/
 - `POST /api/engine/abort-current`
 
 Engine base address is `http://localhost:9000/`.
+
+Engine logging is wired through Serilog (console + rolling file logs under `Ate.Engine/bin/<Configuration>/net472/logs`).
 
 ## Quick start
 
