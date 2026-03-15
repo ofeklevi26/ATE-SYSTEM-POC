@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Web.Http;
 using Ate.Engine.Drivers;
 using Ate.Engine.Infrastructure;
@@ -21,7 +22,12 @@ public sealed class CapabilitiesController : ApiController
     public IHttpActionResult GetCapabilities()
     {
         var definitions = _driverRegistry.GetCommandDefinitions();
-        _logger.Info($"Capabilities requested: returned {definitions.Count} definitions.");
+        var operationCount = definitions.Sum(d => d.Operations.Count);
+        var summary = definitions.Count == 0
+            ? "none"
+            : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverId} ({d.Operations.Count} ops)"));
+
+        _logger.Info($"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}].");
         return Ok(definitions);
     }
 }
