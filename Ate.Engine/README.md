@@ -53,7 +53,8 @@ No per-device configured-wrapper provider class is required.
 ## Related docs
 
 - Root architecture + repo map: `../README.md`
-- Driver onboarding guide: `../ADD_NEW_DRIVER.md`
+- Driver onboarding guide (configured wrappers): `../ADD_NEW_DRIVER.md`
+- Direct plugin DLL guide: `../ADD_DLL_DRIVER.md`
 - State review and design notes: `../PROJECT_STATE_REVIEW.md`
 - Module-specific conventions: `DeviceIntegration/Modules/README.md`
 
