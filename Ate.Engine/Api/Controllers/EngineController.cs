@@ -1,3 +1,4 @@
+using System;
 using System.Web.Http;
 using Ate.Engine.Commands;
 using Ate.Engine.Infrastructure;
@@ -20,35 +21,67 @@ public sealed class EngineController : ApiController
     [Route("pause")]
     public IHttpActionResult Pause()
     {
-        _commandInvoker.Pause();
-        _logger.Info("Engine queue paused by API request.");
-        return Ok();
+        try
+        {
+            _commandInvoker.Pause();
+            _logger.Info("Engine queue paused by API request.");
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to pause engine queue.", ex);
+            return InternalServerError();
+        }
     }
 
     [HttpPost]
     [Route("resume")]
     public IHttpActionResult Resume()
     {
-        _commandInvoker.Resume();
-        _logger.Info("Engine queue resumed by API request.");
-        return Ok();
+        try
+        {
+            _commandInvoker.Resume();
+            _logger.Info("Engine queue resumed by API request.");
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to resume engine queue.", ex);
+            return InternalServerError();
+        }
     }
 
     [HttpPost]
     [Route("clear")]
     public IHttpActionResult Clear()
     {
-        _commandInvoker.ClearPending();
-        _logger.Info("Engine queue cleared by API request.");
-        return Ok();
+        try
+        {
+            _commandInvoker.ClearPending();
+            _logger.Info("Engine queue cleared by API request.");
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to clear engine queue.", ex);
+            return InternalServerError();
+        }
     }
 
     [HttpPost]
     [Route("abort-current")]
     public IHttpActionResult AbortCurrent()
     {
-        _commandInvoker.AbortCurrent();
-        _logger.Info("Current command abort requested via API.");
-        return Ok();
+        try
+        {
+            _commandInvoker.AbortCurrent();
+            _logger.Info("Current command abort requested via API.");
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to abort current command.", ex);
+            return InternalServerError();
+        }
     }
 }

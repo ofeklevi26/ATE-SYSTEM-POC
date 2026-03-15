@@ -26,31 +26,39 @@ public sealed class CommandController : ApiController
     [Route("")]
     public IHttpActionResult EnqueueCommand([FromBody] DeviceCommandRequest request)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.DeviceType) || string.IsNullOrWhiteSpace(request.Operation))
+        try
         {
-            _logger.Error("Rejected command request because DeviceType or Operation is missing.");
-            return BadRequest("DeviceType and Operation are required.");
+            if (request == null || string.IsNullOrWhiteSpace(request.DeviceType) || string.IsNullOrWhiteSpace(request.Operation))
+            {
+                _logger.Error("Rejected command request because DeviceType or Operation is missing.");
+                return BadRequest("DeviceType and Operation are required.");
+            }
+
+            var id = Guid.NewGuid().ToString("N");
+            var command = new OperateDeviceCommand(
+                id,
+                request.ClientRequestId,
+                request.DeviceType,
+                request.DriverId,
+                request.Operation,
+                ParameterValueNormalizer.Normalize(request.Parameters),
+                _driverRegistry,
+                _logger);
+
+            _commandInvoker.Enqueue(command);
+            _logger.Info($"Command enqueued: {request.DeviceType}/{ResolveDriverIdForLog(request.DriverId)}::{request.Operation} (serverCommandId={id}).");
+
+            return Ok(new DeviceCommandResponse
+            {
+                ServerCommandId = id,
+                Message = "Command enqueued."
+            });
         }
-
-        var id = Guid.NewGuid().ToString("N");
-        var command = new OperateDeviceCommand(
-            id,
-            request.ClientRequestId,
-            request.DeviceType,
-            request.DriverId,
-            request.Operation,
-            ParameterValueNormalizer.Normalize(request.Parameters),
-            _driverRegistry,
-            _logger);
-
-        _commandInvoker.Enqueue(command);
-        _logger.Info($"Command enqueued: {request.DeviceType}/{ResolveDriverIdForLog(request.DriverId)}::{request.Operation} (serverCommandId={id}).");
-
-        return Ok(new DeviceCommandResponse
+        catch (Exception ex)
         {
-            ServerCommandId = id,
-            Message = "Command enqueued."
-        });
+            _logger.Error("Failed to enqueue command request.", ex);
+            return InternalServerError();
+        }
     }
 
     private static string ResolveDriverIdForLog(string? driverId)

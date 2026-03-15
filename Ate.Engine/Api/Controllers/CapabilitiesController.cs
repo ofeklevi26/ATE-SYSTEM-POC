@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Web.Http;
 using Ate.Engine.Drivers;
@@ -21,14 +22,22 @@ public sealed class CapabilitiesController : ApiController
     [Route("")]
     public IHttpActionResult GetCapabilities()
     {
-        var definitions = _driverRegistry.GetCommandDefinitions();
-        var operationCount = definitions.Sum(d => d.Operations.Count);
-        var summary = definitions.Count == 0
-            ? "none"
-            : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverId} ({d.Operations.Count} ops)"));
+        try
+        {
+            var definitions = _driverRegistry.GetCommandDefinitions();
+            var operationCount = definitions.Sum(d => d.Operations.Count);
+            var summary = definitions.Count == 0
+                ? "none"
+                : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverId} ({d.Operations.Count} ops)"));
 
-        _logger.Info(
-            $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (driverId source: set per device in engine-config.json; clients send that value in POST /api/command request.driverId. If omitted, engine resolves driverId='default' when available).");
-        return Ok(definitions);
+            _logger.Info(
+                $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (driverId source: set per device in engine-config.json; clients send that value in POST /api/command request.driverId. If omitted, engine resolves driverId='default' when available).");
+            return Ok(definitions);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to retrieve capabilities.", ex);
+            return InternalServerError();
+        }
     }
 }

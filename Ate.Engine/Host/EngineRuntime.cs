@@ -30,43 +30,73 @@ public sealed class EngineRuntime : IDisposable
 
     public ILogger Logger { get; }
 
-    public static EngineRuntime Start()
+    public static EngineRuntime Start(ILogger? bootLoggerOverride = null)
     {
         var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-        var bootLogger = SerilogBootstrapper.CreateLogger(baseDirectory);
-        var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
-        var pluginAssemblies = DiscoverDriverAssemblies(driversPath, bootLogger);
+        var ownsLogger = bootLoggerOverride == null;
+        var bootLogger = bootLoggerOverride ?? SerilogBootstrapper.CreateLogger(baseDirectory);
 
-        var services = BuildServiceCollection(pluginAssemblies, bootLogger);
-        var serviceProvider = services.BuildServiceProvider();
+        try
+        {
+            var driversPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drivers");
+            var pluginAssemblies = DiscoverDriverAssemblies(driversPath, bootLogger);
 
-        var logger = serviceProvider.GetRequiredService<ILogger>();
-        var registry = serviceProvider.GetRequiredService<DriverRegistry>();
-        var invoker = serviceProvider.GetRequiredService<CommandInvoker>();
-        var configuredWrapperRegistrar = serviceProvider.GetRequiredService<ConfiguredWrapperRegistrar>();
+            var services = BuildServiceCollection(pluginAssemblies, bootLogger);
+            var serviceProvider = services.BuildServiceProvider();
 
-        var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
-        var config = EngineConfiguration.Load(configPath);
+            var logger = serviceProvider.GetRequiredService<ILogger>();
+            var registry = serviceProvider.GetRequiredService<DriverRegistry>();
+            var invoker = serviceProvider.GetRequiredService<CommandInvoker>();
+            var configuredWrapperRegistrar = serviceProvider.GetRequiredService<ConfiguredWrapperRegistrar>();
 
-        configuredWrapperRegistrar.Register(config);
+            var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine-config.json");
+            var config = EngineConfiguration.Load(configPath);
 
-        var loader = new DriverLoader(registry, logger);
-        loader.LoadFromAssemblies(pluginAssemblies);
+            configuredWrapperRegistrar.Register(config);
 
-        invoker.Start();
+            var loader = new DriverLoader(registry, logger);
+            loader.LoadFromAssemblies(pluginAssemblies);
 
-        var dependencyResolver = new ServiceProviderDependencyResolver(serviceProvider);
-        const string baseAddress = "http://localhost:9000/";
-        var webApp = WebApp.Start(baseAddress, appBuilder => new Startup(dependencyResolver).Configuration(appBuilder));
+            invoker.Start();
 
-        return new EngineRuntime(baseAddress, logger, invoker, webApp);
+            var dependencyResolver = new ServiceProviderDependencyResolver(serviceProvider);
+            const string baseAddress = "http://localhost:9000/";
+            var webApp = WebApp.Start(baseAddress, appBuilder => new Startup(dependencyResolver, logger).Configuration(appBuilder));
+
+            return new EngineRuntime(baseAddress, logger, invoker, webApp);
+        }
+        catch (Exception ex)
+        {
+            bootLogger.Error("Engine runtime failed during startup.", ex);
+
+            if (ownsLogger)
+            {
+                SerilogBootstrapper.Shutdown();
+            }
+
+            throw;
+        }
     }
 
     public void Dispose()
     {
-        _webApp.Dispose();
-        _invoker.StopAsync().GetAwaiter().GetResult();
-        SerilogBootstrapper.Shutdown();
+        try
+        {
+            _webApp.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Failed while disposing HTTP web host.", ex);
+        }
+
+        try
+        {
+            _invoker.StopAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Failed while stopping command invoker.", ex);
+        }
     }
 
     private static ServiceCollection BuildServiceCollection(IReadOnlyList<Assembly> pluginAssemblies, ILogger logger)
@@ -77,7 +107,7 @@ public sealed class EngineRuntime : IDisposable
         services.AddSingleton<CommandInvoker>();
         services.AddSingleton<ConfiguredWrapperRegistrar>();
 
-        foreach (var module in DiscoverDriverModules(pluginAssemblies))
+        foreach (var module in DiscoverDriverModules(pluginAssemblies, logger))
         {
             module.Register(services);
         }
@@ -114,7 +144,7 @@ public sealed class EngineRuntime : IDisposable
         return assemblies;
     }
 
-    private static IReadOnlyList<IDriverModule> DiscoverDriverModules(IReadOnlyList<Assembly> pluginAssemblies)
+    private static IReadOnlyList<IDriverModule> DiscoverDriverModules(IReadOnlyList<Assembly> pluginAssemblies, ILogger logger)
     {
         var modules = new List<IDriverModule>();
         var assemblies = new List<Assembly> { typeof(EngineRuntime).Assembly };
@@ -122,11 +152,34 @@ public sealed class EngineRuntime : IDisposable
 
         foreach (var assembly in assemblies.Distinct())
         {
-            foreach (var type in assembly.GetTypes().Where(IsDriverModuleType))
+            Type[] types;
+            try
             {
-                if (Activator.CreateInstance(type) is IDriverModule module)
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                logger.Error($"Failed to reflect all types from assembly '{assembly.FullName}'.", ex);
+                types = ex.Types.Where(t => t != null).Cast<Type>().ToArray();
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to inspect assembly '{assembly.FullName}' for driver modules.", ex);
+                continue;
+            }
+
+            foreach (var type in types.Where(IsDriverModuleType))
+            {
+                try
                 {
-                    modules.Add(module);
+                    if (Activator.CreateInstance(type) is IDriverModule module)
+                    {
+                        modules.Add(module);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Failed to instantiate driver module '{type.FullName}'.", ex);
                 }
             }
         }
