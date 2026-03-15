@@ -44,12 +44,19 @@ public sealed class CommandController : ApiController
             _logger);
 
         _commandInvoker.Enqueue(command);
-        _logger.Info($"Command enqueued: {request.DeviceType}/{request.DriverId ?? "default"}::{request.Operation} (serverCommandId={id}).");
+        _logger.Info($"Command enqueued: {request.DeviceType}/{FormatDriverId(request.DriverId)}::{request.Operation} (serverCommandId={id}).");
 
         return Ok(new DeviceCommandResponse
         {
             ServerCommandId = id,
             Message = "Command enqueued."
         });
+    }
+
+    private static string FormatDriverId(string? driverId)
+    {
+        return string.IsNullOrWhiteSpace(driverId) || string.Equals(driverId, "default", StringComparison.OrdinalIgnoreCase)
+            ? "<default-driver>"
+            : driverId;
     }
 }

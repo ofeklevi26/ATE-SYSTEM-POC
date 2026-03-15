@@ -304,7 +304,8 @@ Single-worker in-memory command queue runtime.
   - normalizes parameter values,
   - creates `OperateDeviceCommand`,
   - enqueues into `CommandInvoker`,
-  - returns server command ID.
+  - returns server command ID,
+  - logs enqueue events (using `<default-driver>` when request driverId is omitted or `default`).
 
 ### `Ate.Engine/Api/Controllers/StatusController.cs`
 - `GET /api/status`
@@ -319,7 +320,8 @@ Single-worker in-memory command queue runtime.
 
 ### `Ate.Engine/Api/Controllers/CapabilitiesController.cs`
 - `GET /api/capabilities`
-  - returns `DriverRegistry.GetCommandDefinitions()`; this is the UI’s source of truth.
+  - returns `DriverRegistry.GetCommandDefinitions()`; this is the UI’s source of truth,
+  - logs loaded device/driver summaries and clarifies driverId source (`engine-config.json` -> request `driverId`).
 
 ---
 
