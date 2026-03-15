@@ -129,6 +129,7 @@ dotnet run --project Ate.Ui/Ate.Ui.csproj
 Each driver entry uses:
 - `deviceType` (logical family, e.g., `DMM`)
 - `driverId` (instance selector)
+  - Use `default` for the canonical/fallback driver instance for a device family.
 - `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
 - `settings` (string dictionary used for wrapper constructor binding)
 
