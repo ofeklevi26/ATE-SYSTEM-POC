@@ -24,8 +24,9 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 
 ## Driver selection responsibility
 
-- Client request (`POST /api/command`) specifies `deviceType` and optional `driverId`.
-- Engine resolves the concrete driver by registry lookup order: explicit id -> `default` -> first device-type match.
+- At startup, engine registers configured wrappers/driver instances from `engine-config.json` into `DriverRegistry`.
+- Client request (`POST /api/command`) specifies `deviceType` and optional `driverId` per command.
+- Engine resolves the concrete driver per command from that preloaded registry: explicit id -> `default` -> first device-type match.
 - If you need deterministic non-default routing, configure a unique `driverId` in `engine-config.json` and send that exact value.
 
 ## API controllers

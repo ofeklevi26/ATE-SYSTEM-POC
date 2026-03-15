@@ -105,8 +105,9 @@ ATE-SYSTEM-POC/
 
 ## Who chooses the driver? (client vs engine)
 
-- **Client chooses target intent** by sending `deviceType` + optional `driverId` in `POST /api/command`.
-- **Engine performs final resolution** in this order:
+- **At startup**, engine loads `engine-config.json` and registers available driver instances/wrappers.
+- **At command time**, client chooses target intent by sending `deviceType` + optional `driverId` in `POST /api/command`.
+- **At command time**, engine performs final resolution from the pre-registered drivers in this order:
   1. exact `deviceType::driverId` (when client provides `driverId`),
   2. `deviceType::default`,
   3. first available `deviceType::*` fallback registration.

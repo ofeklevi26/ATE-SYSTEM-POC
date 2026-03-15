@@ -31,8 +31,9 @@ For a headless integration you typically need:
 ## Who chooses the driver?
 
 Both, in different roles:
-- The **client chooses intent** by sending `driverId` in `POST /api/command`.
-- The **engine chooses final match** using resolution order (exact id -> `default` -> first matching registration).
+- The **engine preloads available drivers at startup** from `engine-config.json` (and plugin registrations).
+- The **client chooses intent per command** by sending `driverId` in `POST /api/command`.
+- The **engine chooses final match per command** using resolution order (exact id -> `default` -> first matching registration).
 
 If you want a specific instrument every time, always send that specific configured `driverId`.
 
