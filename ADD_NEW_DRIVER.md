@@ -149,6 +149,11 @@ In `Ate.Engine/engine-config.json`:
 
 If no constructor can be resolved (or constructors are ambiguous), wrapper creation fails.
 
+### Driver selection timing
+- Driver instances are registered at engine startup from `engine-config.json`.
+- Client selects which registered instance to use per command by sending `driverId` in `POST /api/command`.
+- If `driverId` is omitted, engine tries `default` for that device type.
+
 ---
 
 ## 5) Verify
@@ -162,7 +167,7 @@ Example checks:
 
 ```bash
 curl http://localhost:9000/api/capabilities
-curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"LOAD","operation":"Identify","parameters":{}}'
+curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"LOAD","driverId":"default","operation":"Identify","parameters":{}}'
 curl http://localhost:9000/api/status
 ```
 

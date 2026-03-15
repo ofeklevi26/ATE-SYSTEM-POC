@@ -236,6 +236,7 @@ In-memory key/value registry for drivers and capabilities.
   3. any matching `deviceType::*` fallback.
 - `GetLoadedDrivers()` returns sorted registry keys.
 - `GetCommandDefinitions()` returns capability metadata for API/UI.
+- Registration happens at startup; each command resolves against this preloaded registry at request time.
 
 ### `Ate.Engine/Core/Drivers/WrapperOperationRuntime.cs`
 Reflection-based operation metadata + invocation runtime.
@@ -299,7 +300,7 @@ Single-worker in-memory command queue runtime.
 ## 8) HTTP API controllers
 
 ### `Ate.Engine/Api/Controllers/CommandController.cs`
-- `POST /api/command`
+- `POST /api/command` (driver resolved per request from startup-registered drivers)
   - validates request,
   - normalizes parameter values,
   - creates `OperateDeviceCommand`,
