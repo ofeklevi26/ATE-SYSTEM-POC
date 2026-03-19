@@ -35,13 +35,38 @@ public sealed class CommandController : ApiController
             }
 
             var id = Guid.NewGuid().ToString("N");
+            var normalizedParameters = ParameterValueNormalizer.Normalize(request.Parameters);
+
+            if (!_driverRegistry.TryResolve(request.DeviceType, request.DriverId, out var driver) || driver == null)
+            {
+                var driverResolutionError =
+                    $"No driver registered for device '{request.DeviceType}' and driverId '{ResolveDriverIdForLog(request.DriverId)}'.";
+                _logger.Error(driverResolutionError);
+                return BadRequest(driverResolutionError);
+            }
+
+            try
+            {
+                WrapperOperationRuntime.ValidateInvocation(driver, request.Operation, normalizedParameters);
+            }
+            catch (ParameterTypeMismatchException ex)
+            {
+                _logger.Error($"Rejected command due to type mismatch: {ex.Message}");
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.Error($"Rejected command due to invalid invocation: {ex.Message}");
+                return BadRequest(ex.Message);
+            }
+
             var command = new OperateDeviceCommand(
                 id,
                 request.ClientRequestId,
                 request.DeviceType,
                 request.DriverId,
                 request.Operation,
-                ParameterValueNormalizer.Normalize(request.Parameters),
+                normalizedParameters,
                 _driverRegistry,
                 _logger);
 
