@@ -434,16 +434,8 @@ public static class WrapperOperationRuntime
                 $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
-        try
-        {
-            return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
-        }
-        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
-        {
-            throw new InvalidOperationException(
-                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
-                ex);
-        }
+        throw new InvalidOperationException(
+            $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
     }
 
     private static IReadOnlyDictionary<string, MethodInfo> GetOperationMethods(Type wrapperType)
