@@ -63,6 +63,17 @@ public static class WrapperOperationRuntime
         }
     }
 
+    public static void ValidateParametersForOperation(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters)
+    {
+        var operations = GetOperationMethods(wrapper.GetType());
+        if (!operations.TryGetValue(operation, out var method))
+        {
+            throw new InvalidOperationException($"Unsupported operation '{operation}'. Supported operations: {string.Join(", ", operations.Keys.OrderBy(x => x))}.");
+        }
+
+        BindParameters(method, parameters);
+    }
+
 
     private static void ValidateContractConsistency(Type wrapperType, DeviceCommandDefinition contractDefinition)
     {
@@ -255,7 +266,16 @@ public static class WrapperOperationRuntime
         {
             if (provided.TryGetValue(param.Name ?? string.Empty, out var raw) && !IsMissingValue(raw))
             {
-                return ConvertValue(raw, param.ParameterType);
+                try
+                {
+                    return ConvertValue(raw, param.ParameterType);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter '{param.Name}' in operation '{method.Name}': {ex.Message}",
+                        ex);
+                }
             }
 
             throw new InvalidOperationException($"Missing parameter '{param.Name}' for operation '{method.Name}'.");
@@ -309,46 +329,242 @@ public static class WrapperOperationRuntime
     private static object? ConvertValue(object value, Type targetType)
     {
         var effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        var incomingType = value.GetType().Name;
+
+        if (value == null)
+        {
+            throw new InvalidOperationException($"Type mismatch: expected '{effectiveType.Name}' but received null.");
+        }
 
         if (effectiveType.IsInstanceOfType(value))
         {
             return value;
         }
 
-        if (value is string s)
+        if (effectiveType == typeof(string))
         {
-            if (effectiveType == typeof(bool) && bool.TryParse(s, out var boolParsed))
+            return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+
+        if (effectiveType == typeof(bool))
+        {
+            if (value is string boolString && bool.TryParse(boolString, out var boolParsed))
             {
                 return boolParsed;
             }
 
-            if (effectiveType == typeof(int) && int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intParsed))
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType == typeof(int))
+        {
+            if (value is string intString && int.TryParse(intString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intParsed))
             {
                 return intParsed;
             }
 
-            if (effectiveType == typeof(decimal) && decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var decParsed))
+            if (value is long l && l <= int.MaxValue && l >= int.MinValue)
             {
-                return decParsed;
+                return (int)l;
             }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
-        if (effectiveType == typeof(decimal) && (value is double dbl))
+        if (effectiveType == typeof(decimal))
         {
-            return decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            if (value is string decimalString && decimal.TryParse(decimalString, NumberStyles.Float, CultureInfo.InvariantCulture, out var decimalParsed))
+            {
+                return decimalParsed;
+            }
+
+            if (value is double dbl)
+            {
+                if (double.IsNaN(dbl) || double.IsInfinity(dbl))
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+                }
+
+                try
+                {
+                    return Convert.ToDecimal(dbl, CultureInfo.InvariantCulture);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
+            }
+
+            if (value is float flt)
+            {
+                if (float.IsNaN(flt) || float.IsInfinity(flt))
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+                }
+
+                try
+                {
+                    return Convert.ToDecimal(flt, CultureInfo.InvariantCulture);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
+            }
+
+            if (value is int intValue)
+            {
+                return (decimal)intValue;
+            }
+
+            if (value is long longValue)
+            {
+                return (decimal)longValue;
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
-        if (effectiveType == typeof(decimal) && (value is float flt))
+        if (effectiveType == typeof(long))
         {
-            return decimal.Parse(flt.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            if (value is string longString && long.TryParse(longString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longParsed))
+            {
+                return longParsed;
+            }
+
+            if (value is int intForLong)
+            {
+                return (long)intForLong;
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
-        if (effectiveType == typeof(int) && value is long l && l <= int.MaxValue && l >= int.MinValue)
+        if (effectiveType == typeof(double))
         {
-            return (int)l;
+            if (value is string doubleString && double.TryParse(doubleString, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleParsed))
+            {
+                if (!double.IsNaN(doubleParsed) && !double.IsInfinity(doubleParsed))
+                {
+                    return doubleParsed;
+                }
+            }
+
+            if (value is float floatForDouble)
+            {
+                if (!float.IsNaN(floatForDouble) && !float.IsInfinity(floatForDouble))
+                {
+                    return (double)floatForDouble;
+                }
+            }
+
+            if (value is int intForDouble)
+            {
+                return (double)intForDouble;
+            }
+
+            if (value is long longForDouble)
+            {
+                return (double)longForDouble;
+            }
+
+            if (value is decimal decimalForDouble)
+            {
+                try
+                {
+                    return decimal.ToDouble(decimalForDouble);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
-        return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+        if (effectiveType == typeof(float))
+        {
+            if (value is string floatString && float.TryParse(floatString, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatParsed))
+            {
+                if (!float.IsNaN(floatParsed) && !float.IsInfinity(floatParsed))
+                {
+                    return floatParsed;
+                }
+            }
+
+            if (value is int intForFloat)
+            {
+                return (float)intForFloat;
+            }
+
+            if (value is long longForFloat)
+            {
+                return (float)longForFloat;
+            }
+
+            if (value is double doubleForFloat && !double.IsNaN(doubleForFloat) && !double.IsInfinity(doubleForFloat))
+            {
+                if (doubleForFloat >= float.MinValue && doubleForFloat <= float.MaxValue)
+                {
+                    return (float)doubleForFloat;
+                }
+            }
+
+            if (value is decimal decimalForFloat)
+            {
+                try
+                {
+                    return decimal.ToSingle(decimalForFloat);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType.IsEnum)
+        {
+            if (value is string enumString && Enum.TryParse(effectiveType, enumString, true, out var enumParsed))
+            {
+                return enumParsed;
+            }
+
+            if (value is int enumInt)
+            {
+                return Enum.ToObject(effectiveType, enumInt);
+            }
+
+            if (value is long enumLong)
+            {
+                return Enum.ToObject(effectiveType, enumLong);
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        throw new InvalidOperationException(
+            $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
     }
 
     private static IReadOnlyDictionary<string, MethodInfo> GetOperationMethods(Type wrapperType)
