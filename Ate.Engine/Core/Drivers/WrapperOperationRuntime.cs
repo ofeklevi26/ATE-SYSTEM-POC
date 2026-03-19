@@ -329,6 +329,7 @@ public static class WrapperOperationRuntime
     private static object? ConvertValue(object value, Type targetType)
     {
         var effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        var incomingType = value.GetType().Name;
 
         if (value == null)
         {
@@ -340,51 +341,67 @@ public static class WrapperOperationRuntime
             return value;
         }
 
-        var conversionSucceeded = false;
-        object? convertedValue = null;
-
-        if (value is string s)
+        if (effectiveType == typeof(string))
         {
-            if (effectiveType == typeof(bool) && bool.TryParse(s, out var boolParsed))
+            return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+
+        if (effectiveType == typeof(bool))
+        {
+            if (value is string boolString && bool.TryParse(boolString, out var boolParsed))
             {
-                conversionSucceeded = true;
-                convertedValue = boolParsed;
+                return boolParsed;
             }
 
-            if (!conversionSucceeded && effectiveType == typeof(int) && int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intParsed))
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType == typeof(int))
+        {
+            if (value is string intString && int.TryParse(intString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intParsed))
             {
-                conversionSucceeded = true;
-                convertedValue = intParsed;
+                return intParsed;
             }
 
-            if (!conversionSucceeded && effectiveType == typeof(decimal) && decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var decParsed))
+            if (value is long l && l <= int.MaxValue && l >= int.MinValue)
             {
-                conversionSucceeded = true;
-                convertedValue = decParsed;
+                return (int)l;
             }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
-        if (!conversionSucceeded && effectiveType == typeof(decimal) && value is double dbl)
+        if (effectiveType == typeof(decimal))
         {
-            conversionSucceeded = true;
-            convertedValue = decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
-        }
+            if (value is string decimalString && decimal.TryParse(decimalString, NumberStyles.Float, CultureInfo.InvariantCulture, out var decimalParsed))
+            {
+                return decimalParsed;
+            }
 
-        if (!conversionSucceeded && effectiveType == typeof(decimal) && value is float flt)
-        {
-            conversionSucceeded = true;
-            convertedValue = decimal.Parse(flt.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
-        }
+            if (value is double dbl)
+            {
+                return decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            }
 
-        if (!conversionSucceeded && effectiveType == typeof(int) && value is long l && l <= int.MaxValue && l >= int.MinValue)
-        {
-            conversionSucceeded = true;
-            convertedValue = (int)l;
-        }
+            if (value is float flt)
+            {
+                return decimal.Parse(flt.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            }
 
-        if (conversionSucceeded)
-        {
-            return convertedValue;
+            if (value is int intValue)
+            {
+                return (decimal)intValue;
+            }
+
+            if (value is long longValue)
+            {
+                return (decimal)longValue;
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
 
         try
@@ -393,7 +410,6 @@ public static class WrapperOperationRuntime
         }
         catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
         {
-            var incomingType = value.GetType().Name;
             throw new InvalidOperationException(
                 $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
                 ex);
