@@ -109,7 +109,7 @@ Track queue length, current command, state, and last error.
 ## Important contract notes for custom clients
 
 1. **Operation + parameter names must match capability metadata exactly.**
-2. **Required params**: if a wrapper parameter has no default value, server treats it as required and rejects missing values.
+2. **Required params**: server requires explicit values for all wrapper parameters; omitted, null, empty, or whitespace-only values are rejected.
 3. **Known-family drift protection**: for device types backed by `KnownCapabilitiesCatalog`, startup validates wrapper signatures vs catalog and fails fast on mismatch.
 4. **Type conversion**: server converts common string/number representations to target CLR types (`int`, `decimal`, `bool`, etc.).
 

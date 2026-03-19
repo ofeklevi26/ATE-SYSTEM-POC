@@ -137,12 +137,6 @@ public static class WrapperOperationRuntime
                     $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': NumberFormat mismatch (contract={contractParameter.NumberFormat}, wrapper={reflectedParameter.NumberFormat}).");
             }
 
-            if (contractParameter.Required != reflectedParameter.Required)
-            {
-                throw new InvalidOperationException(
-                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': Required mismatch (contract={contractParameter.Required}, wrapper={reflectedParameter.Required}).");
-            }
-
             if (contractParameter.Nullable != reflectedParameter.Nullable)
             {
                 throw new InvalidOperationException(
@@ -168,7 +162,6 @@ public static class WrapperOperationRuntime
 
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
-        var required = !parameter.HasDefaultValue;
         var explicitDefault = parameter.HasDefaultValue && parameter.DefaultValue != null
             ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
             : null;
@@ -186,7 +179,6 @@ public static class WrapperOperationRuntime
             Description = string.Empty,
             Kind = MapParameterKind(parameter.ParameterType),
             NumberFormat = MapNumberFormat(parameter.ParameterType),
-            Required = required,
             Nullable = nullable,
             Default = defaultValue
         };
@@ -261,18 +253,23 @@ public static class WrapperOperationRuntime
     {
         return method.GetParameters().Select(param =>
         {
-            if (provided.TryGetValue(param.Name ?? string.Empty, out var raw) && raw != null)
+            if (provided.TryGetValue(param.Name ?? string.Empty, out var raw) && !IsMissingValue(raw))
             {
                 return ConvertValue(raw, param.ParameterType);
             }
 
-            if (param.HasDefaultValue)
-            {
-                return param.DefaultValue;
-            }
-
             throw new InvalidOperationException($"Missing required parameter '{param.Name}' for operation '{method.Name}'.");
         }).ToArray();
+    }
+
+    private static bool IsMissingValue(object? value)
+    {
+        if (value == null)
+        {
+            return true;
+        }
+
+        return value is string s && string.IsNullOrWhiteSpace(s);
     }
 
 

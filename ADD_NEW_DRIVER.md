@@ -93,7 +93,7 @@ For stable client integration, add your family to `Ate.Contracts/KnownCapabiliti
 At minimum, define:
 - `DeviceType`, `DriverId`, `DriverDisplayName`, `DriverDescription`
 - all operation names and parameter names exactly as wrapper method signatures
-- `Kind`, optional `NumberFormat`, `Required`, `Nullable`, and `Default` values that match runtime behavior
+- `Kind`, optional `NumberFormat`, `Nullable`, and `Default` values that match runtime behavior
 
 If omitted, `/api/capabilities` still works via reflection fallback, but the schema is not centrally versioned in contracts.
 
@@ -174,4 +174,3 @@ curl http://localhost:9000/api/status
 ---
 
 Use `wrapperType` as the only wrapper selector key in configuration.
-

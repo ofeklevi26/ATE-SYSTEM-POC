@@ -107,7 +107,6 @@ public static class KnownCapabilitiesCatalog
                             Description = "Target output voltage in volts.",
                             Kind = ParameterKind.Number,
                             NumberFormat = NumberFormat.Decimal,
-                            Required = true,
                             Nullable = false,
                             Default = "0.0"
                         },
@@ -139,7 +138,6 @@ public static class KnownCapabilitiesCatalog
                             Description = "Maximum current in amps.",
                             Kind = ParameterKind.Number,
                             NumberFormat = NumberFormat.Decimal,
-                            Required = true,
                             Nullable = false,
                             Default = "0.0"
                         },
@@ -187,7 +185,7 @@ public static class KnownCapabilitiesCatalog
         {
             Name = "channel",
             DisplayName = "Channel",
-            Description = "Optional channel override.",
+            Description = "Channel override.",
             Kind = ParameterKind.Integer,
             Nullable = true,
             Default = "1"
