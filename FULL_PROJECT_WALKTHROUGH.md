@@ -41,6 +41,13 @@ The solution contains 3 projects:
   - register through config,
   - keep contracts in sync for known families.
 
+### `ADD_DLL_DRIVER.md`
+- Prescribes how to add and load a DLL-based driver plugin:
+  - create a plugin class library that references `Ate.Engine` and `Ate.Contracts`,
+  - implement `IDriverModule` + `IDeviceDriver` and annotate operations,
+  - copy the built plugin DLL into the engine `drivers/` folder,
+  - verify plugin discovery/registration at startup and through `/api/capabilities`.
+
 ### `PROJECT_STATE_REVIEW.md`
 - Captures current implementation maturity and runtime behavior expectations.
 
