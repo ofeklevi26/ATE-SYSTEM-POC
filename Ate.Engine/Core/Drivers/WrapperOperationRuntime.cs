@@ -137,12 +137,6 @@ public static class WrapperOperationRuntime
                     $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': NumberFormat mismatch (contract={contractParameter.NumberFormat}, wrapper={reflectedParameter.NumberFormat}).");
             }
 
-            if (contractParameter.Required != reflectedParameter.Required)
-            {
-                throw new InvalidOperationException(
-                    $"KnownCapabilitiesCatalog drift for deviceType '{deviceType}', operation '{contractOperation.Name}', parameter '{contractParameter.Name}' on wrapper '{wrapperType.FullName}': Required mismatch (contract={contractParameter.Required}, wrapper={reflectedParameter.Required}).");
-            }
-
             if (contractParameter.Nullable != reflectedParameter.Nullable)
             {
                 throw new InvalidOperationException(
@@ -168,7 +162,6 @@ public static class WrapperOperationRuntime
 
     private static CommandParameterDefinition BuildParameterDefinition(ParameterInfo parameter)
     {
-        var required = !parameter.HasDefaultValue;
         var explicitDefault = parameter.HasDefaultValue && parameter.DefaultValue != null
             ? Convert.ToString(parameter.DefaultValue, CultureInfo.InvariantCulture)
             : null;
@@ -186,7 +179,6 @@ public static class WrapperOperationRuntime
             Description = string.Empty,
             Kind = MapParameterKind(parameter.ParameterType),
             NumberFormat = MapNumberFormat(parameter.ParameterType),
-            Required = required,
             Nullable = nullable,
             Default = defaultValue
         };

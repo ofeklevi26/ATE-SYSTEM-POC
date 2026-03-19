@@ -64,7 +64,7 @@ Formatting notes:
 `WrapperOperationRuntime.BuildDefinition` now follows a contract-first flow:
 - for known built-in families (`DMM`, `PSU`), returns explicit definitions from `Ate.Contracts.KnownCapabilitiesCatalog`,
 - for unknown/plugin families, reflects public instance methods with `[DriverOperation]`,
-- reflection fallback infers types (`String`, `Integer`, `Decimal`, `Boolean`) and required-ness from method defaults.
+- reflection fallback infers types (`String`, `Integer`, `Decimal`, `Boolean`) for contract metadata.
 
 Duplicate operation names on a wrapper type throw an error.
 
@@ -112,7 +112,7 @@ Cancellation and command failures are logged and surfaced in `LastError`.
 
 - Queue is in-memory only (no persistence).
 - Wrapper operation invocation currently expects synchronous wrapper operation methods.
-- For reflection fallback, required parameters are those without default values, and missing required values now fail fast at invocation time.
+- Wrapper operation invocation requires explicit values for all parameters; missing/blank values fail fast at invocation time.
 - Plugin discovery is filesystem-based (`drivers/*.dll`) with best-effort load.
 
 ## 10) Recommended next steps

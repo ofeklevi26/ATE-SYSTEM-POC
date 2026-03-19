@@ -75,7 +75,7 @@ Defines all transport and metadata models.
 - `ParameterKind` / `NumberFormat`
   - normalized parameter typing for dynamic UIs.
 - `CommandParameterDefinition`
-  - per-parameter metadata: name, type, required, nullable, default.
+  - per-parameter metadata: name, type, nullable, default.
 - `CommandOperationDefinition`
   - operation metadata + parameter list.
 - `DeviceCommandDefinition`
@@ -89,7 +89,7 @@ Contract-first metadata for known families.
 - `CreateDmmDefinition` / `CreatePsuDefinition`
   - hardcoded operation definitions, including parameter defaults/types.
 - `BuildChannelParameter`
-  - shared optional channel metadata.
+  - shared channel parameter metadata.
 
 **Why this matters**: known wrappers are validated against this contract at engine startup to catch drift.
 
@@ -259,9 +259,10 @@ Reflection-based operation metadata + invocation runtime.
   - compare reflected wrapper methods against catalog operations for known families.
   - enforces no mismatch on operation existence or parameter shape.
 - `BuildOperationDefinition` / `BuildParameterDefinition`
-  - infer kinds, number formats, defaults, required/nullable semantics.
+  - infer kinds, number formats, defaults, and nullable semantics.
 - `BindParameters(...)`
-  - requires provided value or method default; otherwise throws required-parameter error.
+  - requires explicit provided values for all wrapper method parameters.
+  - treats missing, null, empty, or whitespace-only values as invalid.
 - `ConvertValue(...)`
   - robust cross-type conversion (string/bool/int/decimal + long/double/floats).
 - `GetOperationMethods(...)`
@@ -485,4 +486,3 @@ For known built-ins, keep wrapper signature aligned with `KnownCapabilitiesCatal
 - **WrapperOperationRuntime** is the reflection brain (metadata + invocation + contract consistency checks).
 - **CommandInvoker** is the execution pipeline controller.
 - **UI** is a thin capability-driven operator console.
-
