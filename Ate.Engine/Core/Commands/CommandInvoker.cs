@@ -110,6 +110,12 @@ public sealed class CommandInvoker
         _currentCommandCts?.Cancel();
     }
 
+    public void ReportError(string error)
+    {
+        LastError = error;
+        _logger.Error(error);
+    }
+
     private async Task WorkerLoopAsync(CancellationToken stopToken)
     {
         while (!stopToken.IsCancellationRequested)

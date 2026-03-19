@@ -43,7 +43,7 @@ public sealed class CommandController : ApiController
             {
                 var driverResolutionError =
                     $"No driver registered for device '{request.DeviceType}' and driverId '{ResolveDriverIdForLog(request.DriverId)}'.";
-                _logger.Error(driverResolutionError);
+                _commandInvoker.ReportError(driverResolutionError);
                 return BadRequest(GenericCommandValidationError);
             }
 
@@ -53,12 +53,12 @@ public sealed class CommandController : ApiController
             }
             catch (ParameterTypeMismatchException ex)
             {
-                _logger.Error($"Rejected command due to type mismatch: {ex.Message}");
+                _commandInvoker.ReportError($"Rejected command due to type mismatch: {ex.Message}");
                 return BadRequest(GenericCommandValidationError);
             }
             catch (InvalidOperationException ex)
             {
-                _logger.Error($"Rejected command due to invalid invocation: {ex.Message}");
+                _commandInvoker.ReportError($"Rejected command due to invalid invocation: {ex.Message}");
                 return BadRequest(GenericCommandValidationError);
             }
 
