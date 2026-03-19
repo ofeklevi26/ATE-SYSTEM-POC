@@ -296,7 +296,6 @@ public sealed class ParameterInputViewModel : INotifyPropertyChanged
         Name = definition.Name;
         Kind = definition.Kind;
         NumberFormat = definition.NumberFormat;
-        Required = definition.Required;
         _valueText = definition.Default ?? string.Empty;
     }
 
@@ -307,8 +306,6 @@ public sealed class ParameterInputViewModel : INotifyPropertyChanged
     public ParameterKind Kind { get; }
 
     public NumberFormat? NumberFormat { get; }
-
-    public bool Required { get; }
 
     public string TypeLabel => Kind == ParameterKind.Number && NumberFormat.HasValue
         ? $"{Kind} ({NumberFormat.Value})"

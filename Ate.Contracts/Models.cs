@@ -62,8 +62,6 @@ public sealed class CommandParameterDefinition
 
     public NumberFormat? NumberFormat { get; set; }
 
-    public bool Required { get; set; }
-
     public bool Nullable { get; set; }
 
     public string? Default { get; set; }
