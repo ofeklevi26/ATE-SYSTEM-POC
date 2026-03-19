@@ -63,6 +63,17 @@ public static class WrapperOperationRuntime
         }
     }
 
+    public static void ValidateParametersForOperation(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters)
+    {
+        var operations = GetOperationMethods(wrapper.GetType());
+        if (!operations.TryGetValue(operation, out var method))
+        {
+            throw new InvalidOperationException($"Unsupported operation '{operation}'. Supported operations: {string.Join(", ", operations.Keys.OrderBy(x => x))}.");
+        }
+
+        BindParameters(method, parameters);
+    }
+
 
     private static void ValidateContractConsistency(Type wrapperType, DeviceCommandDefinition contractDefinition)
     {
@@ -255,7 +266,16 @@ public static class WrapperOperationRuntime
         {
             if (provided.TryGetValue(param.Name ?? string.Empty, out var raw) && !IsMissingValue(raw))
             {
-                return ConvertValue(raw, param.ParameterType);
+                try
+                {
+                    return ConvertValue(raw, param.ParameterType);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter '{param.Name}' in operation '{method.Name}': {ex.Message}",
+                        ex);
+                }
             }
 
             throw new InvalidOperationException($"Missing parameter '{param.Name}' for operation '{method.Name}'.");
@@ -310,45 +330,74 @@ public static class WrapperOperationRuntime
     {
         var effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
+        if (value == null)
+        {
+            throw new InvalidOperationException($"Type mismatch: expected '{effectiveType.Name}' but received null.");
+        }
+
         if (effectiveType.IsInstanceOfType(value))
         {
             return value;
         }
 
+        var conversionSucceeded = false;
+        object? convertedValue = null;
+
         if (value is string s)
         {
             if (effectiveType == typeof(bool) && bool.TryParse(s, out var boolParsed))
             {
-                return boolParsed;
+                conversionSucceeded = true;
+                convertedValue = boolParsed;
             }
 
-            if (effectiveType == typeof(int) && int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intParsed))
+            if (!conversionSucceeded && effectiveType == typeof(int) && int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intParsed))
             {
-                return intParsed;
+                conversionSucceeded = true;
+                convertedValue = intParsed;
             }
 
-            if (effectiveType == typeof(decimal) && decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var decParsed))
+            if (!conversionSucceeded && effectiveType == typeof(decimal) && decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var decParsed))
             {
-                return decParsed;
+                conversionSucceeded = true;
+                convertedValue = decParsed;
             }
         }
 
-        if (effectiveType == typeof(decimal) && (value is double dbl))
+        if (!conversionSucceeded && effectiveType == typeof(decimal) && value is double dbl)
         {
-            return decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            conversionSucceeded = true;
+            convertedValue = decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
         }
 
-        if (effectiveType == typeof(decimal) && (value is float flt))
+        if (!conversionSucceeded && effectiveType == typeof(decimal) && value is float flt)
         {
-            return decimal.Parse(flt.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            conversionSucceeded = true;
+            convertedValue = decimal.Parse(flt.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
         }
 
-        if (effectiveType == typeof(int) && value is long l && l <= int.MaxValue && l >= int.MinValue)
+        if (!conversionSucceeded && effectiveType == typeof(int) && value is long l && l <= int.MaxValue && l >= int.MinValue)
         {
-            return (int)l;
+            conversionSucceeded = true;
+            convertedValue = (int)l;
         }
 
-        return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+        if (conversionSucceeded)
+        {
+            return convertedValue;
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
+        {
+            var incomingType = value.GetType().Name;
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                ex);
+        }
     }
 
     private static IReadOnlyDictionary<string, MethodInfo> GetOperationMethods(Type wrapperType)

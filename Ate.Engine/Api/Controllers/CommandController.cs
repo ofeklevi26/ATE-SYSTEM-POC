@@ -35,13 +35,32 @@ public sealed class CommandController : ApiController
             }
 
             var id = Guid.NewGuid().ToString("N");
+            if (!_driverRegistry.TryResolve(request.DeviceType, request.DriverId, out var resolvedDriver) || resolvedDriver == null)
+            {
+                var missingDriverError = $"No driver registered for device '{request.DeviceType}' and driverId '{ResolveDriverIdForLog(request.DriverId)}'.";
+                _logger.Error($"Rejected command request due to missing driver: {missingDriverError}");
+                return BadRequest(missingDriverError);
+            }
+
+            var normalizedParameters = ParameterValueNormalizer.Normalize(request.Parameters);
+            try
+            {
+                WrapperOperationRuntime.ValidateParametersForOperation(resolvedDriver, request.Operation, normalizedParameters);
+            }
+            catch (InvalidOperationException ex)
+            {
+                var validationError = $"Rejected command request due to parameter validation error: {ex.Message}";
+                _logger.Error(validationError);
+                return BadRequest(validationError);
+            }
+
             var command = new OperateDeviceCommand(
                 id,
                 request.ClientRequestId,
                 request.DeviceType,
                 request.DriverId,
                 request.Operation,
-                ParameterValueNormalizer.Normalize(request.Parameters),
+                normalizedParameters,
                 _driverRegistry,
                 _logger);
 
