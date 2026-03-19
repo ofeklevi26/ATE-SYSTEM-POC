@@ -11,7 +11,9 @@ Proof-of-concept Automated Test Equipment (ATE) stack with three projects:
 ATE-SYSTEM-POC/
 ├── ATE-SYSTEM-POC.sln
 ├── ADD_NEW_DRIVER.md
+├── ADD_DLL_DRIVER.md
 ├── PROJECT_STATE_REVIEW.md
+├── FULL_PROJECT_WALKTHROUGH.md
 ├── README.md
 │
 ├── Ate.Contracts/

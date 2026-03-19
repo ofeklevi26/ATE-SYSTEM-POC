@@ -121,3 +121,6 @@ Cancellation and command failures are logged and surfaced in `LastError`.
 3. Add structured logging context (device type, driver id, operation, command id).
 4. Add optional persistence/replay model for queued commands if durability is required.
 5. Keep `KnownCapabilitiesCatalog` synchronized whenever built-in wrapper method signatures change.
+6. Cross-reference onboarding docs so driver-extension paths are explicit:
+   - use `ADD_NEW_DRIVER.md` for built-in/configured wrappers,
+   - use `ADD_DLL_DRIVER.md` for filesystem plugin DLL onboarding.
