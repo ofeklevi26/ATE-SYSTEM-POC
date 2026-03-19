@@ -2,6 +2,7 @@
 
 A module wires a device family into DI and exposes a wrapper type for config-based instantiation.
 
+
 ## Contract
 
 Implement `IDriverModule`:
