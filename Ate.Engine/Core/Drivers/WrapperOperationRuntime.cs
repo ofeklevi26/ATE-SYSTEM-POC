@@ -41,7 +41,7 @@ public static class WrapperOperationRuntime
         };
     }
 
-    public static Task<object> InvokeAsync(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters, CancellationToken token)
+    public static async Task<object> InvokeAsync(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
@@ -55,7 +55,13 @@ public static class WrapperOperationRuntime
         try
         {
             var result = method.Invoke(wrapper, args);
-            return Task.FromResult(result ?? string.Empty);
+            if (result is Task taskResult)
+            {
+                await taskResult.ConfigureAwait(false);
+                return GetTaskResult(taskResult);
+            }
+
+            return result ?? string.Empty;
         }
         catch (TargetInvocationException ex) when (ex.InnerException != null)
         {
@@ -258,6 +264,16 @@ public static class WrapperOperationRuntime
                 return ConvertValue(raw, param.ParameterType);
             }
 
+            if (param.HasDefaultValue)
+            {
+                return param.DefaultValue;
+            }
+
+            if (!param.ParameterType.IsValueType || Nullable.GetUnderlyingType(param.ParameterType) != null)
+            {
+                return null;
+            }
+
             throw new InvalidOperationException($"Missing required parameter '{param.Name}' for operation '{method.Name}'.");
         }).ToArray();
     }
@@ -349,6 +365,18 @@ public static class WrapperOperationRuntime
         }
 
         return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+    }
+
+    private static object GetTaskResult(Task task)
+    {
+        var taskType = task.GetType();
+        if (!taskType.IsGenericType)
+        {
+            return string.Empty;
+        }
+
+        var resultProperty = taskType.GetProperty("Result");
+        return resultProperty?.GetValue(task) ?? string.Empty;
     }
 
     private static IReadOnlyDictionary<string, MethodInfo> GetOperationMethods(Type wrapperType)
