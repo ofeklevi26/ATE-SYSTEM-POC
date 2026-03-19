@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -253,20 +252,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private static object ConvertParameterValue(ParameterInputViewModel input)
     {
         var raw = input.ValueText?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(raw))
-        {
-            return string.Empty;
-        }
-
-        return input.Kind switch
-        {
-            ParameterKind.Integer => int.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterKind.Number when input.NumberFormat == NumberFormat.Double || input.NumberFormat == NumberFormat.Float
-                => double.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterKind.Number => decimal.Parse(raw, CultureInfo.InvariantCulture),
-            ParameterKind.Boolean => bool.Parse(raw),
-            _ => raw
-        };
+        return string.IsNullOrEmpty(raw) ? string.Empty : raw;
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? memberName = null)
