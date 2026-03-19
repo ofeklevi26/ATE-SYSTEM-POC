@@ -11,6 +11,8 @@ namespace Ate.Engine.Controllers;
 [RoutePrefix("api/command")]
 public sealed class CommandController : ApiController
 {
+    private const string GenericCommandValidationError = "Command validation failed. Check the engine log window for details.";
+
     private readonly DriverRegistry _driverRegistry;
     private readonly ILogger _logger;
     private readonly CommandInvoker _commandInvoker;
@@ -42,7 +44,7 @@ public sealed class CommandController : ApiController
                 var driverResolutionError =
                     $"No driver registered for device '{request.DeviceType}' and driverId '{ResolveDriverIdForLog(request.DriverId)}'.";
                 _logger.Error(driverResolutionError);
-                return BadRequest(driverResolutionError);
+                return BadRequest(GenericCommandValidationError);
             }
 
             try
@@ -52,12 +54,12 @@ public sealed class CommandController : ApiController
             catch (ParameterTypeMismatchException ex)
             {
                 _logger.Error($"Rejected command due to type mismatch: {ex.Message}");
-                return BadRequest(ex.Message);
+                return BadRequest(GenericCommandValidationError);
             }
             catch (InvalidOperationException ex)
             {
                 _logger.Error($"Rejected command due to invalid invocation: {ex.Message}");
-                return BadRequest(ex.Message);
+                return BadRequest(GenericCommandValidationError);
             }
 
             var command = new OperateDeviceCommand(
