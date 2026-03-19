@@ -75,7 +75,7 @@ Defines all transport and metadata models.
 - `ParameterKind` / `NumberFormat`
   - normalized parameter typing for dynamic UIs.
 - `CommandParameterDefinition`
-  - per-parameter metadata: name, type, required, nullable, default.
+  - per-parameter metadata: name, type, nullable, default.
 - `CommandOperationDefinition`
   - operation metadata + parameter list.
 - `DeviceCommandDefinition`
@@ -259,9 +259,9 @@ Reflection-based operation metadata + invocation runtime.
   - compare reflected wrapper methods against catalog operations for known families.
   - enforces no mismatch on operation existence or parameter shape.
 - `BuildOperationDefinition` / `BuildParameterDefinition`
-  - infer kinds, number formats, defaults, required/nullable semantics.
+  - infer kinds, number formats, defaults, and nullable semantics.
 - `BindParameters(...)`
-  - requires provided value or method default; otherwise throws required-parameter error.
+  - requires provided value for every operation parameter and throws on missing input.
 - `ConvertValue(...)`
   - robust cross-type conversion (string/bool/int/decimal + long/double/floats).
 - `GetOperationMethods(...)`
@@ -485,4 +485,3 @@ For known built-ins, keep wrapper signature aligned with `KnownCapabilitiesCatal
 - **WrapperOperationRuntime** is the reflection brain (metadata + invocation + contract consistency checks).
 - **CommandInvoker** is the execution pipeline controller.
 - **UI** is a thin capability-driven operator console.
-
