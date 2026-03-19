@@ -45,12 +45,7 @@ public static class WrapperOperationRuntime
     {
         token.ThrowIfCancellationRequested();
 
-        var operations = GetOperationMethods(wrapper.GetType());
-        if (!operations.TryGetValue(operation, out var method))
-        {
-            throw new InvalidOperationException($"Unsupported operation '{operation}'. Supported operations: {string.Join(", ", operations.Keys.OrderBy(x => x))}.");
-        }
-
+        var method = ResolveOperationMethod(wrapper.GetType(), operation);
         var args = BindParameters(method, parameters);
         try
         {
@@ -61,6 +56,12 @@ public static class WrapperOperationRuntime
         {
             throw ex.InnerException;
         }
+    }
+
+    public static void ValidateInvocation(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters)
+    {
+        var method = ResolveOperationMethod(wrapper.GetType(), operation);
+        BindParameters(method, parameters);
     }
 
 
@@ -255,7 +256,7 @@ public static class WrapperOperationRuntime
         {
             if (provided.TryGetValue(param.Name ?? string.Empty, out var raw) && !IsMissingValue(raw))
             {
-                return ConvertValue(raw, param.ParameterType);
+                return ConvertValue(method.Name, param.Name ?? string.Empty, raw, param.ParameterType);
             }
 
             throw new InvalidOperationException($"Missing parameter '{param.Name}' for operation '{method.Name}'.");
@@ -306,7 +307,7 @@ public static class WrapperOperationRuntime
         return string.Empty;
     }
 
-    private static object? ConvertValue(object value, Type targetType)
+    private static object? ConvertValue(string operation, string parameterName, object value, Type targetType)
     {
         var effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
@@ -327,9 +328,24 @@ public static class WrapperOperationRuntime
                 return intParsed;
             }
 
+            if (effectiveType == typeof(long) && long.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longParsed))
+            {
+                return longParsed;
+            }
+
             if (effectiveType == typeof(decimal) && decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var decParsed))
             {
                 return decParsed;
+            }
+
+            if (effectiveType == typeof(double) && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleParsed))
+            {
+                return doubleParsed;
+            }
+
+            if (effectiveType == typeof(float) && float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatParsed))
+            {
+                return floatParsed;
             }
         }
 
@@ -348,7 +364,30 @@ public static class WrapperOperationRuntime
             return (int)l;
         }
 
-        return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+        if (effectiveType == typeof(long) && value is int i)
+        {
+            return (long)i;
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex) when (ex is FormatException || ex is InvalidCastException || ex is OverflowException)
+        {
+            throw new ParameterTypeMismatchException(operation, parameterName, effectiveType.Name, value);
+        }
+    }
+
+    private static MethodInfo ResolveOperationMethod(Type wrapperType, string operation)
+    {
+        var operations = GetOperationMethods(wrapperType);
+        if (!operations.TryGetValue(operation, out var method))
+        {
+            throw new InvalidOperationException($"Unsupported operation '{operation}'. Supported operations: {string.Join(", ", operations.Keys.OrderBy(x => x))}.");
+        }
+
+        return method;
     }
 
     private static IReadOnlyDictionary<string, MethodInfo> GetOperationMethods(Type wrapperType)
