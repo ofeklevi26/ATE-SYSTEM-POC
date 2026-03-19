@@ -353,6 +353,45 @@ public static class WrapperOperationRuntime
                 return boolParsed;
             }
 
+            if (value is string boolNumericString && int.TryParse(boolNumericString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var boolNumeric))
+            {
+                if (boolNumeric == 0)
+                {
+                    return false;
+                }
+
+                if (boolNumeric == 1)
+                {
+                    return true;
+                }
+            }
+
+            if (value is int boolInt)
+            {
+                if (boolInt == 0)
+                {
+                    return false;
+                }
+
+                if (boolInt == 1)
+                {
+                    return true;
+                }
+            }
+
+            if (value is long boolLong)
+            {
+                if (boolLong == 0L)
+                {
+                    return false;
+                }
+
+                if (boolLong == 1L)
+                {
+                    return true;
+                }
+            }
+
             throw new InvalidOperationException(
                 $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
         }
@@ -367,6 +406,33 @@ public static class WrapperOperationRuntime
             if (value is long l && l <= int.MaxValue && l >= int.MinValue)
             {
                 return (int)l;
+            }
+
+            if (value is decimal intDecimalValue && intDecimalValue >= int.MinValue && intDecimalValue <= int.MaxValue)
+            {
+                var truncated = decimal.Truncate(intDecimalValue);
+                if (truncated == intDecimalValue)
+                {
+                    return (int)intDecimalValue;
+                }
+            }
+
+            if (value is double intDoubleValue && !double.IsNaN(intDoubleValue) && !double.IsInfinity(intDoubleValue) && intDoubleValue >= int.MinValue && intDoubleValue <= int.MaxValue)
+            {
+                var truncated = Math.Truncate(intDoubleValue);
+                if (Math.Abs(truncated - intDoubleValue) < double.Epsilon)
+                {
+                    return (int)intDoubleValue;
+                }
+            }
+
+            if (value is float intFloatValue && !float.IsNaN(intFloatValue) && !float.IsInfinity(intFloatValue) && intFloatValue >= int.MinValue && intFloatValue <= int.MaxValue)
+            {
+                var truncated = MathF.Truncate(intFloatValue);
+                if (MathF.Abs(truncated - intFloatValue) < float.Epsilon)
+                {
+                    return (int)intFloatValue;
+                }
             }
 
             throw new InvalidOperationException(
@@ -428,6 +494,144 @@ public static class WrapperOperationRuntime
             if (value is long longValue)
             {
                 return (decimal)longValue;
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType == typeof(long))
+        {
+            if (value is string longString && long.TryParse(longString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longParsed))
+            {
+                return longParsed;
+            }
+
+            if (value is int intForLong)
+            {
+                return (long)intForLong;
+            }
+
+            if (value is decimal longDecimalValue && longDecimalValue >= long.MinValue && longDecimalValue <= long.MaxValue)
+            {
+                var truncated = decimal.Truncate(longDecimalValue);
+                if (truncated == longDecimalValue)
+                {
+                    return (long)longDecimalValue;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType == typeof(double))
+        {
+            if (value is string doubleString && double.TryParse(doubleString, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleParsed))
+            {
+                if (!double.IsNaN(doubleParsed) && !double.IsInfinity(doubleParsed))
+                {
+                    return doubleParsed;
+                }
+            }
+
+            if (value is float floatForDouble)
+            {
+                if (!float.IsNaN(floatForDouble) && !float.IsInfinity(floatForDouble))
+                {
+                    return (double)floatForDouble;
+                }
+            }
+
+            if (value is int intForDouble)
+            {
+                return (double)intForDouble;
+            }
+
+            if (value is long longForDouble)
+            {
+                return (double)longForDouble;
+            }
+
+            if (value is decimal decimalForDouble)
+            {
+                try
+                {
+                    return decimal.ToDouble(decimalForDouble);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType == typeof(float))
+        {
+            if (value is string floatString && float.TryParse(floatString, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatParsed))
+            {
+                if (!float.IsNaN(floatParsed) && !float.IsInfinity(floatParsed))
+                {
+                    return floatParsed;
+                }
+            }
+
+            if (value is int intForFloat)
+            {
+                return (float)intForFloat;
+            }
+
+            if (value is long longForFloat)
+            {
+                return (float)longForFloat;
+            }
+
+            if (value is double doubleForFloat && !double.IsNaN(doubleForFloat) && !double.IsInfinity(doubleForFloat))
+            {
+                if (doubleForFloat >= float.MinValue && doubleForFloat <= float.MaxValue)
+                {
+                    return (float)doubleForFloat;
+                }
+            }
+
+            if (value is decimal decimalForFloat)
+            {
+                try
+                {
+                    return decimal.ToSingle(decimalForFloat);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+        }
+
+        if (effectiveType.IsEnum)
+        {
+            if (value is string enumString && Enum.TryParse(effectiveType, enumString, true, out var enumParsed))
+            {
+                return enumParsed;
+            }
+
+            if (value is int enumInt)
+            {
+                return Enum.ToObject(effectiveType, enumInt);
+            }
+
+            if (value is long enumLong)
+            {
+                return Enum.ToObject(effectiveType, enumLong);
             }
 
             throw new InvalidOperationException(
