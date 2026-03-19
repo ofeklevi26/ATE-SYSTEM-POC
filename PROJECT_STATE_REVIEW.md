@@ -2,6 +2,7 @@
 
 This review reflects the repository as it exists now.
 
+
 ## 1) Current architecture snapshot
 
 ### Projects

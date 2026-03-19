@@ -18,6 +18,7 @@ ATE-SYSTEM-POC/
 │
 ├── Ate.Contracts/
 │   ├── Ate.Contracts.csproj
+│   ├── KnownCapabilitiesCatalog.cs
 │   └── Models.cs
 │
 ├── Ate.Engine/
@@ -25,6 +26,7 @@ ATE-SYSTEM-POC/
 │   ├── engine-config.json
 │   ├── README.md
 │   ├── Api/
+│   │   ├── ApiExceptionLogger.cs
 │   │   └── Controllers/
 │   │       ├── CapabilitiesController.cs
 │   │       ├── CommandController.cs
