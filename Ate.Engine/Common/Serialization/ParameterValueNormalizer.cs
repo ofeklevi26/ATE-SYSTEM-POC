@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -41,7 +42,19 @@ public static class ParameterValueNormalizer
 
         if (value is double d)
         {
-            return decimal.Parse(d.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            if (double.IsNaN(d) || double.IsInfinity(d))
+            {
+                throw new InvalidOperationException($"Type mismatch for parameter value '{d}': expected a finite numeric value.");
+            }
+
+            try
+            {
+                return Convert.ToDecimal(d, CultureInfo.InvariantCulture);
+            }
+            catch (OverflowException ex)
+            {
+                throw new InvalidOperationException($"Type mismatch for parameter value '{d}': numeric value is out of range for decimal.", ex);
+            }
         }
 
         return value;

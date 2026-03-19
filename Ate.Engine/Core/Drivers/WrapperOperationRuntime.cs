@@ -382,12 +382,42 @@ public static class WrapperOperationRuntime
 
             if (value is double dbl)
             {
-                return decimal.Parse(dbl.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+                if (double.IsNaN(dbl) || double.IsInfinity(dbl))
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+                }
+
+                try
+                {
+                    return Convert.ToDecimal(dbl, CultureInfo.InvariantCulture);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
             }
 
             if (value is float flt)
             {
-                return decimal.Parse(flt.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+                if (float.IsNaN(flt) || float.IsInfinity(flt))
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.");
+                }
+
+                try
+                {
+                    return Convert.ToDecimal(flt, CultureInfo.InvariantCulture);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Type mismatch for parameter value '{value}': expected '{effectiveType.Name}' but received '{incomingType}'.",
+                        ex);
+                }
             }
 
             if (value is int intValue)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Web.Http;
 using Ate.Contracts;
 using Ate.Engine.Commands;
@@ -42,7 +43,18 @@ public sealed class CommandController : ApiController
                 return BadRequest(missingDriverError);
             }
 
-            var normalizedParameters = ParameterValueNormalizer.Normalize(request.Parameters);
+            Dictionary<string, object> normalizedParameters;
+            try
+            {
+                normalizedParameters = ParameterValueNormalizer.Normalize(request.Parameters);
+            }
+            catch (InvalidOperationException ex)
+            {
+                var normalizationError = $"Rejected command request due to parameter normalization error: {ex.Message}";
+                _logger.Error(normalizationError);
+                return BadRequest(normalizationError);
+            }
+
             try
             {
                 WrapperOperationRuntime.ValidateParametersForOperation(resolvedDriver, request.Operation, normalizedParameters);
