@@ -28,14 +28,14 @@ For a headless integration you typically need:
 
 ---
 
-## Who chooses the driver?
+## Who chooses the device?
 
 Both, in different roles:
 - The **engine preloads available drivers at startup** from `engine-config.json` (and plugin registrations).
-- The **client chooses intent per command** by sending `driverId` in `POST /api/command`.
-- The **engine chooses final match per command** using resolution order (exact id -> `default` -> first matching registration).
+- The **client chooses intent per command** by sending `deviceType` + `deviceName` in `POST /api/command`.
+- The **engine chooses final match per command** using exact `deviceType::deviceName`.
 
-If you want a specific instrument every time, always send that specific configured `driverId`.
+If you want a specific instrument every time, always send that specific configured `deviceName`.
 
 ---
 
@@ -56,15 +56,15 @@ For unknown/plugin families, capabilities come from reflection fallback on wrapp
 
 Body shape (`DeviceCommandRequest`):
 
-`driverId` selection rule:
-- Use the `driverId` values returned by `GET /api/capabilities` (those come from engine `engine-config.json`).
-- If you omit `driverId`, engine resolves the device `default` registration when available.
-- To target a different instrument instance, configure another `driverId` in `engine-config.json` and send that value in `POST /api/command`.
+`deviceName` selection rule:
+- Use the configured `deviceName` values for the target `deviceType` from `engine-config.json`.
+- `deviceName` is required for command requests.
+- To target a different instrument instance, configure another `deviceName` in `engine-config.json` and send that value in `POST /api/command`.
 
 ```json
 {
   "deviceType": "PSU",
-  "driverId": "default",
+  "deviceName": "PSU",
   "operation": "SetVoltage",
   "parameters": {
     "voltage": 5.0,
@@ -76,12 +76,12 @@ Body shape (`DeviceCommandRequest`):
 ```
 
 
-Example for a non-default instance (must exist in `engine-config.json`):
+Example for another configured instance (must exist in `engine-config.json`):
 
 ```json
 {
   "deviceType": "PSU",
-  "driverId": "psu-lab2",
+  "deviceName": "PSU2",
   "operation": "SetVoltage",
   "parameters": {
     "voltage": 12.0,
@@ -126,7 +126,7 @@ curl -X POST http://localhost:9000/api/command \
   -H "Content-Type: application/json" \
   -d '{
     "deviceType":"DMM",
-    "driverId":"default",
+    "deviceName":"DMM",
     "operation":"MeasureVoltage",
     "parameters":{"range":10.0,"channel":1},
     "clientRequestId":"demo-1"

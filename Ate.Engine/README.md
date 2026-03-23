@@ -26,16 +26,16 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 ## Driver selection responsibility
 
 - At startup, engine registers configured wrappers/driver instances from `engine-config.json` into `DriverRegistry`.
-- Client request (`POST /api/command`) specifies `deviceType` and optional `driverId` per command.
-- Engine resolves the concrete driver per command from that preloaded registry: explicit id -> `default` -> first device-type match.
-- If you need deterministic non-default routing, configure a unique `driverId` in `engine-config.json` and send that exact value.
+- Client request (`POST /api/command`) specifies `deviceType` and required `deviceName` per command.
+- Engine resolves the concrete driver per command by exact `deviceType::deviceName`.
+- If a request references an unknown configured name, command validation fails.
 
 ## API controllers
 
-- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand` (request `driverId` must match a configured `engine-config.json` driver entry; omit it to use default resolution, or provide another configured id to target a different instance).
+- `CommandController` (`api/command`): validates request and enqueues `OperateDeviceCommand` (request `deviceName` must match a configured `engine-config.json` device entry for the given `deviceType`).
 - `StatusController` (`api/status`): reports state, queue length, current command, last error, loaded drivers; errors are logged and surfaced as 500 responses.
 - `EngineController` (`api/engine/*`): pause/resume/clear/abort-current controls.
-- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data and logs a summary of device/driver definitions and operation counts; logs also clarify that `driverId` comes from `engine-config.json` and is passed by clients in `POST /api/command` (`default` denotes omitted/implicit default).
+- `CapabilitiesController` (`api/capabilities`): returns discovered `DeviceCommandDefinition` data and logs a summary of configured devices and operation counts.
 
 ## Configured wrapper model
 

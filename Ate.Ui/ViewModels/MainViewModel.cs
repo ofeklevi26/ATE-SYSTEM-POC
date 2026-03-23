@@ -105,7 +105,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var request = new DeviceCommandRequest
             {
                 DeviceType = SelectedDevice.DeviceType,
-                DriverId = SelectedDevice.DriverId,
+                DeviceName = string.IsNullOrWhiteSpace(SelectedDevice.DriverDisplayName)
+                    ? SelectedDevice.DeviceType
+                    : SelectedDevice.DriverDisplayName,
                 Operation = SelectedOperation.Name,
                 Parameters = BuildParametersDictionary(),
                 ClientRequestId = Guid.NewGuid().ToString("N")
