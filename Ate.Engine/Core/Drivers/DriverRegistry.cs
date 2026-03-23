@@ -26,7 +26,7 @@ public sealed class DriverRegistry
         Register(driver.DeviceType, deviceName, () => driver, definition);
     }
 
-    public bool TryResolve(string deviceType, string? driverId, string deviceName, out IDeviceDriver? driver)
+    public bool TryResolve(string deviceType, string deviceName, out IDeviceDriver? driver)
     {
         if (_registrations.TryGetValue(BuildKey(deviceType, deviceName), out var namedRegistration))
         {

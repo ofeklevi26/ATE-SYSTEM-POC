@@ -16,7 +16,6 @@ public sealed class OperateDeviceCommand : IAteCommand
         string commandId,
         string? clientRequestId,
         string deviceType,
-        string? driverId,
         string deviceName,
         string operation,
         Dictionary<string, object> parameters,
@@ -26,7 +25,6 @@ public sealed class OperateDeviceCommand : IAteCommand
         CommandId = commandId;
         ClientRequestId = clientRequestId;
         DeviceType = deviceType;
-        DriverId = driverId;
         DeviceName = deviceName;
         Operation = operation;
         Parameters = parameters;
@@ -40,8 +38,6 @@ public sealed class OperateDeviceCommand : IAteCommand
 
     public string DeviceType { get; }
 
-    public string? DriverId { get; }
-
     public string DeviceName { get; }
 
     public string Operation { get; }
@@ -52,7 +48,7 @@ public sealed class OperateDeviceCommand : IAteCommand
 
     public async Task ExecuteAsync(CancellationToken token)
     {
-        if (!_driverRegistry.TryResolve(DeviceType, DriverId, DeviceName, out var driver) || driver == null)
+        if (!_driverRegistry.TryResolve(DeviceType, DeviceName, out var driver) || driver == null)
         {
             throw new InvalidOperationException($"No configured device registered for deviceType '{DeviceType}' and deviceName '{DeviceName}'.");
         }

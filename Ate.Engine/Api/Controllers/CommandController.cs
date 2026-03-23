@@ -42,7 +42,7 @@ public sealed class CommandController : ApiController
             var id = Guid.NewGuid().ToString("N");
             var normalizedParameters = ParameterValueNormalizer.Normalize(request.Parameters);
 
-            if (!_driverRegistry.TryResolve(request.DeviceType, request.DriverId, request.DeviceName, out var driver) || driver == null)
+            if (!_driverRegistry.TryResolve(request.DeviceType, request.DeviceName, out var driver) || driver == null)
             {
                 var driverResolutionError =
                     $"No configured device registered for deviceType '{request.DeviceType}' and deviceName '{request.DeviceName}'.";
@@ -69,7 +69,6 @@ public sealed class CommandController : ApiController
                 id,
                 request.ClientRequestId,
                 request.DeviceType,
-                request.DriverId,
                 request.DeviceName,
                 request.Operation,
                 normalizedParameters,

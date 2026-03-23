@@ -6,8 +6,6 @@ public sealed class DeviceCommandRequest
 {
     public string DeviceType { get; set; } = string.Empty;
 
-    public string? DriverId { get; set; }
-
     public string DeviceName { get; set; } = string.Empty;
 
     public string Operation { get; set; } = string.Empty;

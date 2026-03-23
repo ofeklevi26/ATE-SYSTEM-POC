@@ -28,7 +28,7 @@ public sealed class CapabilitiesController : ApiController
             var operationCount = definitions.Sum(d => d.Operations.Count);
             var summary = definitions.Count == 0
                 ? "none"
-                : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverId} ({d.Operations.Count} ops)"));
+                : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverDisplayName} ({d.Operations.Count} ops)"));
 
             _logger.Info(
                 $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (deviceName source: set per device in engine-config.json; clients must send request.deviceName in POST /api/command to target a configured instrument).");
