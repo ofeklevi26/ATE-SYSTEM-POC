@@ -1,487 +1,729 @@
 # Full Project Walkthrough: ATE-SYSTEM-POC
 
-This document explains the full repository end-to-end: architecture, runtime flow, every main connection point, and each file’s role (including key classes, methods, and behavior).
+This walkthrough is a code-level map of the repository as it exists today. It explains:
 
-## 1) Big-picture architecture
+1. end-to-end runtime flow,
+2. each project and file,
+3. each class/interface/enum,
+4. each method/function and what it does.
 
-The solution contains 3 projects:
+---
 
-- **Ate.Contracts**: shared DTOs + capability schema consumed by both server and client.
-- **Ate.Engine**: self-hosted HTTP engine (OWIN + Web API) that discovers/registers device wrappers, exposes capabilities, and executes queued commands.
-- **Ate.Ui**: WPF client that discovers runtime capabilities and dynamically renders operation parameters.
+## 1) End-to-end runtime flow
 
-### Main flow
-
-1. Engine boots, builds dependency injection container, discovers driver modules + plugin assemblies.
-2. Engine loads `engine-config.json` to instantiate configured wrappers.
-3. Wrappers are registered in `DriverRegistry` along with operation metadata.
-4. UI fetches metadata from `GET /api/capabilities`.
-5. User submits operation via `POST /api/command`.
-6. Command enters queue (`CommandInvoker`) and executes against resolved wrapper.
-7. UI polls `GET /api/status` for queue state/error visibility.
+1. `Ate.Engine/Host/Program.cs` starts Serilog and calls `EngineRuntime.Start()`.
+2. `EngineRuntime` discovers plugin DLLs, discovers modules, builds DI, loads `engine-config.json`, registers configured wrappers, loads direct plugin drivers, starts the command worker, and starts Web API self-host.
+3. `Ate.Ui` (or any external client) calls `GET /api/capabilities` to discover devices/operations.
+4. Client sends `POST /api/command` with `deviceType`, `deviceName`, `operation`, `parameters`.
+5. `CommandController` validates request + invocation and enqueues `OperateDeviceCommand` into `CommandInvoker`.
+6. `CommandInvoker` dequeues and executes commands; `OperateDeviceCommand` resolves the target driver and calls `ExecuteAsync`.
+7. Wrapper (`DmmDeviceWrapper` / `PsuDeviceWrapper` / plugin driver) executes operation through `WrapperOperationRuntime`.
+8. Client polls `GET /api/status` for queue state/errors and can call engine control endpoints (pause/resume/clear/abort).
 
 ---
 
 ## 2) Solution-level files
 
 ### `ATE-SYSTEM-POC.sln`
-- Binds three projects into one solution: `Ate.Contracts`, `Ate.Engine`, `Ate.Ui`.
-- Provides Debug/Release Any CPU configurations.
+- Solution container for `Ate.Contracts`, `Ate.Engine`, and `Ate.Ui`.
 
-### `README.md` (root)
-- High-level system overview.
-- Startup and API behavior summary.
-- Configuration notes and extension path.
-
-### `ADD_NEW_DRIVER.md`
-- Prescribes how to add a new device family:
-  - add hardware interface + implementation,
-  - add wrapper with `[DriverOperation]` methods,
-  - add module and wrapper descriptor,
-  - register through config,
-  - keep contracts in sync for known families.
-
-### `ADD_DLL_DRIVER.md`
-- Prescribes how to add and load a DLL-based driver plugin:
-  - create a plugin class library that references `Ate.Engine` and `Ate.Contracts`,
-  - implement `IDriverModule` + `IDeviceDriver` and annotate operations,
-  - copy the built plugin DLL into the engine `drivers/` folder,
-  - verify plugin discovery/registration at startup and through `/api/capabilities`.
-
-### `PROJECT_STATE_REVIEW.md`
-- Captures current implementation maturity and runtime behavior expectations.
-
-### `STANDALONE_ATECLIENT_GUIDE.md`
-- Describes headless/non-WPF usage of engine APIs.
-- Shows canonical API workflow and payload expectations.
+### Root markdown documents
+- `README.md`: top-level project map and quick start.
+- `Ate.Engine/README.md`: engine internals.
+- `PROJECT_STATE_REVIEW.md`: concise current-state snapshot.
+- `STANDALONE_ATECLIENT_GUIDE.md`: headless client usage.
+- `ADD_NEW_DRIVER.md`: configured-wrapper onboarding.
+- `ADD_DLL_DRIVER.md`: direct plugin onboarding.
 
 ---
 
-## 3) Ate.Contracts (shared contract model)
+## 3) Ate.Contracts project
 
 ### `Ate.Contracts/Ate.Contracts.csproj`
-- Targets `netstandard2.0` for maximum compatibility between engine and UI.
+- Class library project for shared contracts.
 
 ### `Ate.Contracts/Models.cs`
-Defines all transport and metadata models.
 
-- `DeviceCommandRequest`
-  - fields: `DeviceType`, `DriverId`, `Operation`, `Parameters`, `ClientRequestId`.
-  - used by `POST /api/command`.
-- `DeviceCommandResponse`
-  - returned by `POST /api/command`; includes `ServerCommandId` + status `Message`.
-- `EngineStatus`
-  - returned by `GET /api/status`; includes queue + current command + last error + loaded drivers.
-- `ParameterKind` / `NumberFormat`
-  - normalized parameter typing for dynamic UIs.
-- `CommandParameterDefinition`
-  - per-parameter metadata: name, type, nullable, default.
-- `CommandOperationDefinition`
-  - operation metadata + parameter list.
-- `DeviceCommandDefinition`
-  - device wrapper capability bundle: class metadata + operations.
+#### `DeviceCommandRequest`
+- `DeviceType`: target family key.
+- `DeviceName`: configured device instance key.
+- `Operation`: operation name.
+- `Parameters`: operation argument map.
+- `ClientRequestId`: optional client correlation ID.
+
+#### `DeviceCommandResponse`
+- `ServerCommandId`: server-generated queue ID.
+- `Message`: enqueue status message.
+
+#### `EngineStatus`
+- `State`: invoker state string.
+- `QueueLength`: pending commands count.
+- `CurrentCommand`: in-flight command.
+- `LastError`: latest failure text.
+- `LoadedDrivers`: registry keys.
+
+#### `ParameterKind` enum
+- UI-level categories: `String`, `Integer`, `Number`, `Boolean`.
+
+#### `NumberFormat` enum
+- Numeric format metadata: `Decimal`, `Float`, `Double`.
+
+#### `CommandParameterDefinition`
+- Metadata for one parameter: name/display/description/type/default/nullability.
+
+#### `CommandOperationDefinition`
+- Metadata for one operation.
+- `ToString()` returns operation `Name`.
+
+#### `DeviceCommandDefinition`
+- Metadata for one device entry + operations.
+- `ToString()` returns `DriverDisplayName` if present, else `DeviceType`.
 
 ### `Ate.Contracts/KnownCapabilitiesCatalog.cs`
-Contract-first metadata for known families.
 
-- `TryCreateDefinition(deviceType, driverId, out definition)`
-  - returns catalog-defined capability metadata for known types (`DMM`, `PSU`).
-- `CreateDmmDefinition` / `CreatePsuDefinition`
-  - hardcoded operation definitions, including parameter defaults/types.
-- `BuildChannelParameter`
-  - shared optional channel metadata.
+#### `KnownCapabilitiesCatalog` (static)
+- Contract-first capability definitions for known families (`DMM`, `PSU`).
 
-**Why this matters**: known wrappers are validated against this contract at engine startup to catch drift.
+Methods:
+- `TryCreateDefinition(deviceType, driverId, out definition)`:
+  - dispatches to known builders by `deviceType`.
+- `CreateDmmDefinition(driverId)`:
+  - builds explicit DMM metadata for `Identify` + `MeasureVoltage`.
+- `CreatePsuDefinition(driverId)`:
+  - builds explicit PSU metadata for `Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`.
+- `BuildChannelParameter()`:
+  - shared optional `channel` parameter metadata.
 
 ---
 
-## 4) Ate.Engine project / runtime core
+## 4) Ate.Engine project
 
 ### `Ate.Engine/Ate.Engine.csproj`
-- Console executable targeting `net472`.
-- Uses OWIN self-host (`Microsoft.AspNet.WebApi.OwinSelfHost`, `Microsoft.Owin.Host.HttpListener`).
-- Uses Newtonsoft JSON and Microsoft DI.
-- Uses Serilog with console and rolling file sinks.
-- Copies `engine-config.json` to output.
+- .NET Framework executable project (engine host).
 
 ### `Ate.Engine/engine-config.json`
-- Lists configured driver instances.
-- Each entry includes:
-  - `deviceType`
-  - `driverId`
-  - `wrapperType` (optional matcher hint)
-  - `settings` (constructor-binding values + templates like `endpointFormat`).
+- Runtime configured device list.
+- Each entry currently has `deviceName`, `deviceType`, `settings`.
+
+---
+
+## 5) Engine host/bootstrap files
 
 ### `Ate.Engine/Host/Program.cs`
-- Entry point.
-- Calls `EngineRuntime.Start()`, logs base URL, blocks until Enter key.
+
+#### `Program` (static)
+- `Main(string[] args)`:
+  - creates startup logger,
+  - starts runtime,
+  - logs listening URL,
+  - waits for Enter,
+  - shuts down logger in `finally`.
 
 ### `Ate.Engine/Host/EngineRuntime.cs`
-The boot orchestrator.
 
-- `Start()` executes startup sequence:
-  1. create Serilog bootstrap logger (console + rolling file),
-  2. discover plugin assemblies from `drivers/*.dll`,
-  3. build DI (`BuildServiceCollection`),
-  4. resolve key services (`DriverRegistry`, `CommandInvoker`, registrar),
-  5. load config via `EngineConfiguration.Load`,
-  6. register configured wrappers via `ConfiguredWrapperRegistrar.Register`,
-  7. load plugin drivers via `DriverLoader`,
-  8. start `CommandInvoker`,
-  9. start OWIN host at `http://localhost:9000/` with `Startup`.
-- `Dispose()` stops host + queue worker and flushes Serilog.
-- `BuildServiceCollection()` registers infra, modules, controllers.
-- `DiscoverDriverAssemblies()` safely loads plugin DLLs.
-- `DiscoverDriverModules()` scans built-in + plugin assemblies for `IDriverModule` implementations.
+#### `EngineRuntime`
+- Holds running host references (`_webApp`, `_invoker`) and exposes `BaseAddress`, `Logger`.
+
+Methods:
+- private constructor:
+  - captures base address/logger/invoker/web host handle.
+- `Start(ILogger? bootLoggerOverride = null)`:
+  - boot orchestration method.
+  - loads plugin assemblies, builds services, loads config, registers wrappers, loads plugin drivers, starts invoker and OWIN host.
+  - on fatal error: logs + optionally flushes logger + rethrows.
+- `Dispose()`:
+  - disposes web host and stops invoker with logging safeguards.
+- `BuildServiceCollection(pluginAssemblies, logger)`:
+  - registers singleton services + controllers.
+  - discovers and executes module registrations.
+- `DiscoverDriverAssemblies(driversPath, logger)`:
+  - loads DLLs from `drivers` folder (best effort).
+- `DiscoverDriverModules(pluginAssemblies, logger)`:
+  - scans engine + plugin assemblies for `IDriverModule` implementations.
+- `IsDriverModuleType(type)`:
+  - type predicate used during module scanning.
 
 ### `Ate.Engine/Host/Startup.cs`
-- Creates `HttpConfiguration`, enables attribute routing.
-- Injects custom dependency resolver.
-- Applies camelCase + null-ignore JSON settings.
-- Wires Web API middleware.
+
+#### `Startup`
+- Constructor stores dependency resolver + logger.
+
+Methods:
+- `Configuration(IAppBuilder app)`:
+  - creates `HttpConfiguration`,
+  - maps attribute routes,
+  - sets DI resolver,
+  - sets JSON formatter options,
+  - registers `ApiExceptionLogger`,
+  - wires Web API middleware.
 
 ### `Ate.Engine/Host/ServiceProviderDependencyResolver.cs`
-- Bridges ASP.NET Web API dependency resolution to `Microsoft.Extensions.DependencyInjection`.
-- Supports root resolution + scoped child resolution.
+
+#### `ServiceProviderDependencyResolver`
+- Adapter between ASP.NET Web API dependency abstractions and Microsoft DI root provider.
+
+Methods:
+- constructor: stores root provider.
+- `BeginScope()`:
+  - creates per-request scope wrapper.
+- `GetService(Type serviceType)`:
+  - resolve single service from root.
+- `GetServices(Type serviceType)`:
+  - resolve enumerable from root.
+- `Dispose()`:
+  - no-op for root wrapper.
+
+#### `ServiceProviderDependencyScope` (nested class)
+- Adapter for scoped resolution.
+
+Methods:
+- constructor: stores scope.
+- `GetService(Type serviceType)`:
+  - resolve single service from scope provider.
+- `GetServices(Type serviceType)`:
+  - resolve enumerable from scope provider.
+- `Dispose()`:
+  - disposes scope.
 
 ### `Ate.Engine/Host/Configuration/EngineConfiguration.cs`
-- `EngineConfiguration.Load(path)` loads JSON or falls back to default if missing/invalid.
-- `CreateDefault()` returns default DMM/PSU configs.
-- `DriverInstanceConfiguration` holds per-driver config (`DeviceType`, `DriverId`, `WrapperType`, `Settings`).
+
+#### `EngineConfiguration`
+- `Drivers`: list of configured device instances.
+
+Methods:
+- `Load(string path)`:
+  - reads and deserializes JSON config,
+  - throws on missing file/invalid JSON/empty config.
+
+#### `DriverInstanceConfiguration`
+- `DeviceName`: required command-time selector.
+- `DeviceType`: family key.
+- `Settings`: case-insensitive string dictionary used for wrapper constructor binding.
 
 ---
 
-## 5) Engine infrastructure/common utilities
+## 6) Engine infrastructure/common
 
 ### `Ate.Engine/Common/Infrastructure/ILogger.cs`
-- Minimal abstraction: `Info` and `Error`.
+
+#### `ILogger` interface
+Methods:
+- `Info(string message)`
+- `Error(string message, Exception? ex = null)`
 
 ### `Ate.Engine/Common/Infrastructure/SerilogBootstrapper.cs`
-- Builds the process-wide Serilog pipeline.
-- Configures console output and daily rolling log files under `<base>/logs/engine-*.log`.
-- Provides explicit shutdown/flush via `Log.CloseAndFlush()`.
+
+#### `SerilogBootstrapper` (static)
+Methods:
+- `CreateLogger(string baseDirectory)`:
+  - configures Serilog console + rolling file sink,
+  - returns `ILogger` adapter.
+- `Shutdown()`:
+  - closes/flushed Serilog pipeline.
 
 ### `Ate.Engine/Common/Infrastructure/SerilogLogger.cs`
+
+#### `SerilogLogger`
 - Adapter from `Serilog.ILogger` to engine `ILogger`.
-- Maps `Info` and `Error` calls to Serilog events.
+
+Methods:
+- constructor: captures underlying Serilog logger.
+- `Info(message)`: writes info-level event.
+- `Error(message, ex)`: writes error-level event.
 
 ### `Ate.Engine/Common/Serialization/ParameterValueNormalizer.cs`
-Normalizes JSON-bound command parameters.
 
-- `Normalize(raw)` returns safe dictionary and recursively normalizes values.
-- Converts Newtonsoft tokens (`JValue/JObject/JArray`) into plain CLR values.
-- Converts `long` in int range to `int`.
-- Converts `double` to `decimal` (culture invariant).
-
-**Purpose**: consistent type conversion before operation invocation.
-
----
-
-## 6) Driver model, reflection runtime, and registry
-
-### `Ate.Engine/Core/Drivers/IDeviceDriver.cs`
-Driver/wrapper execution contract.
-- Properties: `DeviceType`, `DriverId`.
-- Method: `ExecuteAsync(operation, parameters, token)`.
-
-### `Ate.Engine/Core/Drivers/IDriverModule.cs`
-Device-family registration contract.
-- `Name`
-- `Register(IServiceCollection)`.
-
-### `Ate.Engine/Core/Drivers/ConfiguredWrapperDescriptor.cs`
-- Declares mapping between logical device type and wrapper concrete type.
-- Validates wrapper implements `IDeviceDriver`.
-
-### `Ate.Engine/Core/Drivers/DriverOperationAttribute.cs`
-- Marks wrapper methods as invokable operations.
-- Optional alias name support.
-
-### `Ate.Engine/Core/Drivers/ConfiguredWrapperFactory.cs`
-Creates wrapper instances from config + DI.
-
-- `Create(config, wrapperType, services)`
-  - selects best constructor + resolves each parameter.
-- `SelectConstructor(...)`
-  - one constructor: use it.
-  - many constructors: pick resolvable max-arity constructor, reject ambiguity.
-- Resolution precedence in `ResolveParameterValue(...)`:
-  1. `driverId` param from config `DriverId`.
-  2. direct config setting by parameter name.
-  3. computed `endpoint` / `target` from direct value or `*Format` template.
-  4. DI service by type.
-  5. constructor default value.
-- `ConvertToType(...)` handles string→primitive/enum conversion.
-- `BuildFormattedSetting(...)` performs placeholder replacement (`{address}`, `{port}`, etc).
-
-### `Ate.Engine/Core/Drivers/ConfiguredWrapperRegistrar.cs`
-Registers configured wrappers at startup.
-
-- `Register(engineConfiguration)`:
-  - resolves wrapper descriptor,
-  - builds wrapper instance using factory,
-  - builds capability definition using `WrapperOperationRuntime.BuildDefinition`,
-  - registers wrapper instance + definition in `DriverRegistry`.
-- Contract drift exceptions (from known capabilities validation) are rethrown to fail startup.
-- `ResolveDescriptor(...)` matches `wrapperType` by device type, class name, or full type name; otherwise falls back to `deviceType`.
-
-### `Ate.Engine/Core/Drivers/DriverLoader.cs`
-Optional plugin direct-driver loader (non-configured wrappers).
-
-- Scans assemblies for non-abstract `IDeviceDriver` with default ctor.
-- Instantiates sample to read `DeviceType/DriverId`, then registers factory.
-- Logs registration failures but continues.
-
-### `Ate.Engine/Core/Drivers/DriverRegistry.cs`
-In-memory key/value registry for drivers and capabilities.
-
-- Key pattern: `deviceType::driverId`.
-- `Register(...)` and `RegisterInstance(...)`.
-- `TryResolve(deviceType, driverId, out driver)` lookup order:
-  1. explicit `deviceType::driverId`,
-  2. `deviceType::default`,
-  3. any matching `deviceType::*` fallback.
-- `GetLoadedDrivers()` returns sorted registry keys.
-- `GetCommandDefinitions()` returns capability metadata for API/UI.
-- Registration happens at startup; each command resolves against this preloaded registry at request time.
-
-### `Ate.Engine/Core/Drivers/WrapperOperationRuntime.cs`
-Reflection-based operation metadata + invocation runtime.
-
-- `BuildDefinition(driver, driverParameters?)`
-  - known device type: pull from `KnownCapabilitiesCatalog`, then validate wrapper signature consistency.
-  - unknown type: reflect `[DriverOperation]` methods and infer parameter metadata.
-- `InvokeAsync(wrapper, operation, parameters, token)`
-  - resolves target operation from cache,
-  - binds/typed-converts parameters,
-  - invokes method and unwraps `TargetInvocationException`.
-- `ValidateContractConsistency(...)` + `ValidateParameterConsistency(...)`
-  - compare reflected wrapper methods against catalog operations for known families.
-  - enforces no mismatch on operation existence or parameter shape.
-- `BuildOperationDefinition` / `BuildParameterDefinition`
-  - infer kinds, number formats, defaults, and nullable semantics.
-- `BindParameters(...)`
-  - requires provided value for every operation parameter and throws on missing input.
-- `ConvertValue(...)`
-  - robust cross-type conversion (string/bool/int/decimal + long/double/floats).
-- `GetOperationMethods(...)`
-  - caches `[DriverOperation]` methods by name and rejects duplicates.
+#### `ParameterValueNormalizer` (static)
+Methods:
+- `Normalize(Dictionary<string, object>? raw)`:
+  - normalizes incoming command parameter dictionary,
+  - handles null source as empty dictionary.
+- `NormalizeValue(object value)`:
+  - recursively normalizes values and collections.
+- `NormalizeToken(JToken token)`:
+  - converts Newtonsoft token types into CLR primitives/collections.
 
 ---
 
-## 7) Commanding subsystem
+## 7) Engine API layer
+
+### `Ate.Engine/Api/ApiExceptionLogger.cs`
+
+#### `ApiExceptionLogger`
+- Global Web API exception logger.
+
+Methods:
+- constructor: captures engine logger.
+- `Log(ExceptionLoggerContext context)`:
+  - extracts request/controller/action context,
+  - logs unhandled pipeline exceptions.
+
+### `Ate.Engine/Api/Controllers/CommandController.cs`
+
+#### `CommandController`
+- Accepts command requests.
+
+Methods:
+- constructor: injects `DriverRegistry`, `ILogger`, `CommandInvoker`.
+- `EnqueueCommand(DeviceCommandRequest request)`:
+  - validates required fields,
+  - normalizes parameters,
+  - resolves target driver existence,
+  - validates operation invocation/parameter types,
+  - creates `OperateDeviceCommand`,
+  - enqueues command and returns `DeviceCommandResponse`.
+
+### `Ate.Engine/Api/Controllers/CapabilitiesController.cs`
+
+#### `CapabilitiesController`
+Methods:
+- constructor: injects registry + logger.
+- `GetCapabilities()`:
+  - reads definitions from registry,
+  - logs summary,
+  - returns definitions.
+
+### `Ate.Engine/Api/Controllers/StatusController.cs`
+
+#### `StatusController`
+Methods:
+- constructor: injects invoker + registry + logger.
+- `GetStatus()`:
+  - builds `EngineStatus` from invoker + registry state,
+  - returns status.
+
+### `Ate.Engine/Api/Controllers/EngineController.cs`
+
+#### `EngineController`
+Methods:
+- constructor: injects invoker + logger.
+- `Pause()`:
+  - pauses queue consumption.
+- `Resume()`:
+  - resumes queue consumption.
+- `Clear()`:
+  - removes pending queue items.
+- `AbortCurrent()`:
+  - cancels current command token.
+
+---
+
+## 8) Command queue layer
 
 ### `Ate.Engine/Core/Commands/IAteCommand.cs`
-- Queue item abstraction: `Name` + `ExecuteAsync(token)`.
+
+#### `IAteCommand` interface
+- `Name` property.
+- `ExecuteAsync(CancellationToken token)` method.
 
 ### `Ate.Engine/Core/Commands/OperateDeviceCommand.cs`
-Represents a concrete device operation request.
 
-- Captures IDs, target device, operation, parameters.
-- `Name` formatted for logs/status.
-- `ExecuteAsync(...)`:
-  - resolves driver from registry,
+#### `OperateDeviceCommand`
+- Immutable command payload wrapper.
+
+Methods:
+- constructor:
+  - captures command metadata, parameters, registry, logger.
+- `ExecuteAsync(token)`:
+  - resolves target driver from registry,
   - logs start,
-  - calls `driver.ExecuteAsync(...)`,
+  - invokes driver operation,
   - logs result.
 
 ### `Ate.Engine/Core/Commands/CommandInvoker.cs`
-Single-worker in-memory command queue runtime.
 
-- Queue: `ConcurrentQueue<IAteCommand>` + `SemaphoreSlim` signal.
-- Lifecycle:
-  - `Start()` launches worker loop.
-  - `StopAsync()` cancels lifetime + current command.
-- Controls:
-  - `Pause()`, `Resume()`, `ClearPending()`, `AbortCurrent()`.
-- State fields:
-  - `State`, `CurrentCommand`, `LastError`, `QueueLength`.
-- `WorkerLoopAsync(...)`:
+#### `CommandInvoker`
+- In-memory queue processor with control operations.
+
+Methods:
+- constructor: initializes state (`Stopped`) and dependencies.
+- `Enqueue(IAteCommand command)`:
+  - queues command and signals worker.
+- `Start()`:
+  - creates worker task/lifetime token and sets state to `Running`.
+- `StopAsync()`:
+  - requests worker shutdown, aborts current command, awaits worker, sets state `Stopped`.
+- `Pause()`:
+  - sets pause flag and state `Paused`.
+- `Resume()`:
+  - clears pause flag, sets state `Running`, re-signals worker.
+- `ClearPending()`:
+  - dequeues all pending items.
+- `AbortCurrent()`:
+  - cancels current command CTS.
+- `ReportError(string error)`:
+  - sets `LastError` and logs message.
+- `WorkerLoopAsync(CancellationToken stopToken)` (private):
   - waits for signal,
-  - handles paused mode,
-  - dequeues + executes command with linked cancellation token,
-  - updates error/state fields on cancellation/exception.
+  - handles paused state,
+  - dequeues/executes commands,
+  - updates `CurrentCommand`/`LastError`.
 
 ---
 
-## 8) HTTP API controllers
+## 9) Driver core layer
 
-### `Ate.Engine/Api/Controllers/CommandController.cs`
-- `POST /api/command` (driver resolved per request from startup-registered drivers)
-  - validates request,
-  - normalizes parameter values,
-  - creates `OperateDeviceCommand`,
-  - enqueues into `CommandInvoker`,
-  - returns server command ID,
-  - logs enqueue events (using `default` when request driverId is omitted).
+### `Ate.Engine/Core/Drivers/IDeviceDriver.cs`
 
-### `Ate.Engine/Api/Controllers/StatusController.cs`
-- `GET /api/status`
-  - materializes `EngineStatus` using queue + registry state.
+#### `IDeviceDriver` interface
+- `DeviceType` property.
+- `DriverId` property.
+- `ExecuteAsync(operation, parameters, token)`.
 
-### `Ate.Engine/Api/Controllers/EngineController.cs`
-- Control endpoints:
-  - `POST /api/engine/pause`
-  - `POST /api/engine/resume`
-  - `POST /api/engine/clear`
-  - `POST /api/engine/abort-current`
+### `Ate.Engine/Core/Drivers/IDriverModule.cs`
 
-### `Ate.Engine/Api/Controllers/CapabilitiesController.cs`
-- `GET /api/capabilities`
-  - returns `DriverRegistry.GetCommandDefinitions()`; this is the UI’s source of truth,
-  - logs loaded device/driver summaries and clarifies driverId source (`engine-config.json` -> request `driverId`).
+#### `IDriverModule` interface
+- `Name` property.
+- `Register(IServiceCollection services)` method.
+
+### `Ate.Engine/Core/Drivers/DriverOperationAttribute.cs`
+
+#### `DriverOperationAttribute`
+- Marks wrapper methods as invokable operations.
+
+Methods:
+- constructor `DriverOperationAttribute(string? name = null)`:
+  - optional custom operation name override.
+
+### `Ate.Engine/Core/Drivers/ConfiguredWrapperDescriptor.cs`
+
+#### `ConfiguredWrapperDescriptor`
+- Pairs `DeviceType` with concrete wrapper type.
+
+Methods:
+- constructor validates non-empty `deviceType` and wrapper type compatibility.
+
+### `Ate.Engine/Core/Drivers/ConfiguredWrapperFactory.cs`
+
+#### `ConfiguredWrapperFactory` (internal static)
+Methods:
+- `Create(configuration, wrapperType, services)`:
+  - selects constructor, resolves args, creates wrapper instance.
+- `SelectConstructor(configuration, wrapperType, services)`:
+  - constructor choice algorithm with ambiguity rejection.
+- `CanResolveParameter(config, parameter, services)`:
+  - predicate used by constructor selection.
+- `ResolveParameterValue(config, parameter, services)`:
+  - resolves concrete value by precedence rules.
+- `ConvertToType(targetType, raw)`:
+  - string conversion helper for primitives/enums.
+- `BuildFormattedSetting(settings, valueKey, formatKey, addressKey, channelKey)`:
+  - supports direct and templated endpoint/target values.
+
+### `Ate.Engine/Core/Drivers/ConfiguredWrapperRegistrar.cs`
+
+#### `ConfiguredWrapperRegistrar`
+Methods:
+- constructor: injects descriptors, service provider, registry, logger.
+- `Register(EngineConfiguration configuration)`:
+  - validates each config entry,
+  - prevents duplicate `deviceType::deviceName`,
+  - resolves descriptor, builds wrapper, builds capability definition,
+  - overrides display name with configured `deviceName`,
+  - registers instance in registry,
+  - rethrows known capability drift exceptions.
+- `IsContractDriftException(Exception ex)` (private):
+  - identifies startup-fatal contract drift messages.
+- `ResolveDescriptor(configuration)` (private):
+  - descriptor lookup by `deviceType`.
+- `ValidateDriverConfiguration(configuration)` (private):
+  - ensures required `deviceType`/`deviceName`.
+
+### `Ate.Engine/Core/Drivers/DriverRegistry.cs`
+
+#### `DriverRegistry`
+- Stores driver factories + optional definitions by key.
+
+Methods:
+- `Register(deviceType, deviceName, factory, definition)`:
+  - upsert registration under key.
+- `RegisterInstance(driver, deviceName, definition)`:
+  - convenience wrapper around `Register`.
+- `TryResolve(deviceType, deviceName, out driver)`:
+  - exact-key lookup.
+- `GetLoadedDrivers()`:
+  - ordered key list.
+- `GetCommandDefinitions()`:
+  - ordered non-null definition list.
+- `BuildKey(deviceType, deviceName)` (private):
+  - key composition helper.
+
+Nested class:
+- `DriverRegistration`:
+  - stores `DeviceName`, `Factory`, `Definition`.
+  - constructor initializes fields.
+
+### `Ate.Engine/Core/Drivers/DriverLoader.cs`
+
+#### `DriverLoader`
+Methods:
+- constructor: injects registry + logger.
+- `LoadFromAssemblies(assemblies)`:
+  - iterates distinct assemblies.
+- `LoadFromAssembly(assembly)` (private):
+  - discovers eligible driver types and registers each.
+- `RegisterType(type)` (private):
+  - creates sample instance,
+  - registers under `deviceType::default`,
+  - logs success/failure.
+- `IsDriverType(t)` (private):
+  - validates concrete `IDeviceDriver` with parameterless ctor.
+
+### `Ate.Engine/Core/Drivers/ParameterTypeMismatchException.cs`
+
+#### `ParameterTypeMismatchException`
+- Specialized invalid-operation exception for invocation conversion failures.
+
+Methods:
+- constructor:
+  - captures operation, parameter name, expected type, received value.
+- `BuildMessage(...)` (private):
+  - standardized error message formatter.
+
+### `Ate.Engine/Core/Drivers/WrapperOperationRuntime.cs`
+
+#### `WrapperOperationRuntime` (static)
+- Central reflection/runtime invocation helper.
+
+Public methods:
+- `BuildDefinition(driver, driverParameters = null)`:
+  - known-family: returns catalog definition and validates drift.
+  - unknown-family: reflects `[DriverOperation]` methods into metadata.
+- `InvokeAsync(wrapper, operation, parameters, token)`:
+  - resolves method, binds args, invokes method, unwraps `TargetInvocationException`.
+- `ValidateInvocation(wrapper, operation, parameters)`:
+  - validates operation/parameters without executing hardware side effects.
+
+Private methods:
+- `ValidateContractConsistency(wrapperType, contractDefinition)`:
+  - compares reflected operations with catalog operations.
+- `ValidateParameterConsistency(...)`:
+  - compares contract vs reflection parameter name/type/nullability.
+- `BuildOperationDefinition(operationName, method)`:
+  - builds operation metadata model.
+- `BuildParameterDefinition(parameter)`:
+  - builds parameter metadata model.
+- `GetTypeDisplayName(type)`:
+  - user-friendly type name helper (handles nullable/generic).
+- `MapParameterKind(type)`:
+  - maps CLR type to `ParameterKind`.
+- `MapNumberFormat(type)`:
+  - maps numeric CLR types to `NumberFormat`.
+- `BindParameters(method, provided)`:
+  - binds and converts values for invocation.
+- `IsMissingValue(value)`:
+  - null/blank detection helper.
+- `GetParameterSpecificDefaultValueString(parameter)`:
+  - explicit defaults for known parameter names (e.g., `channel`).
+- `GetImplicitDefaultValueString(type)`:
+  - generic default string helper by type.
+- `ConvertValue(operation, parameterName, value, targetType)`:
+  - conversion pipeline + mismatch exception wrapping.
+- `ResolveOperationMethod(wrapperType, operation)`:
+  - operation lookup + unsupported-operation error.
+- `GetOperationMethods(wrapperType)`:
+  - caches operation methods and enforces duplicate-name rejection.
 
 ---
 
-## 9) Device integration layers
+## 10) Device integration files
 
 ### Hardware interfaces
-- `Ate.Engine/DeviceIntegration/Hardware/IDmmHardwareDriver.cs`
-- `Ate.Engine/DeviceIntegration/Hardware/IPsuHardwareDriver.cs`
 
-These define instrument-level operations (connect/identify/measure/set). Wrappers depend on these interfaces.
+#### `Ate.Engine/DeviceIntegration/Hardware/IDmmHardwareDriver.cs`
+Methods:
+- `Connect(string connectionTarget)`
+- `Disconnect()`
+- `Identify(string address, int channel)`
+- `MeasureVoltage(string address, int channel, decimal range)`
 
-### Demo hardware drivers
-- `DemoDmmHardwareDriver`
-  - no-op connect/disconnect, deterministic fake voltage value.
-- `DemoPsuHardwareDriver`
-  - no-op connect/disconnect, stores simulated output state fields.
+#### `Ate.Engine/DeviceIntegration/Hardware/IPsuHardwareDriver.cs`
+Methods:
+- `Connect(string connectionTarget)`
+- `Disconnect()`
+- `Identify(string address, int channel)`
+- `SetVoltage(int channel, decimal voltage, decimal currentLimit)`
+- `SetCurrentLimit(int channel, decimal currentLimit)`
+- `SetOutput(int channel, bool enabled)`
 
-### Wrappers (engine-facing drivers)
-- `DmmDeviceWrapper` (`IDeviceDriver`)
-  - ctor receives config + hardware service (`driverId`, `address`, `channel`, `endpoint`, hardware).
-  - `ExecuteAsync`: connect → invoke reflected operation → disconnect.
-  - `[DriverOperation]` methods: `MeasureVoltage`, `Identify`.
-- `PsuDeviceWrapper` (`IDeviceDriver`)
-  - same execution pattern.
-  - operations: `Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`.
+### Demo hardware implementations
 
-### Driver modules
-- `DmmDriverModule`, `PsuDriverModule` implement `IDriverModule`.
-- Register both:
-  1. hardware implementation in DI,
-  2. `ConfiguredWrapperDescriptor` for configured wrapper creation.
+#### `Ate.Engine/DeviceIntegration/DemoDrivers/DemoDmmHardwareDriver.cs`
+Methods:
+- `Connect(connectionTarget)`: stores endpoint state.
+- `Disconnect()`: resets connection state.
+- `Identify(address, channel)`: returns synthetic identification string.
+- `MeasureVoltage(address, channel, range)`: returns deterministic demo numeric value.
 
-### `DeviceIntegration/Modules/README.md`
-- Documents module responsibilities, config resolution behavior, and conventions.
+#### `Ate.Engine/DeviceIntegration/DemoDrivers/DemoPsuHardwareDriver.cs`
+Methods:
+- `Connect(connectionTarget)`: stores endpoint state.
+- `Disconnect()`: resets connection state.
+- `Identify(address, channel)`: returns synthetic identification string.
+- `SetVoltage(channel, voltage, currentLimit)`: stores simulated channel state.
+- `SetCurrentLimit(channel, currentLimit)`: updates simulated channel current limit.
+- `SetOutput(channel, enabled)`: toggles simulated channel output state.
+
+### Wrapper implementations
+
+#### `Ate.Engine/DeviceIntegration/Wrappers/DmmDeviceWrapper.cs`
+Methods:
+- constructor: captures driver/config/hardware dependency.
+- `ExecuteAsync(operation, parameters, token)`:
+  - connects hardware endpoint,
+  - invokes runtime operation,
+  - disconnects in `finally`.
+- `[DriverOperation] MeasureVoltage(range = 10.0m, channel = null)`:
+  - resolves channel,
+  - reads voltage from hardware,
+  - returns `{ Value, Unit }` object.
+- `[DriverOperation] Identify(channel = null)`:
+  - resolves channel,
+  - returns hardware identify string.
+
+#### `Ate.Engine/DeviceIntegration/Wrappers/PsuDeviceWrapper.cs`
+Methods:
+- constructor: captures driver/config/hardware dependency.
+- `ExecuteAsync(operation, parameters, token)`:
+  - connects endpoint, invokes runtime, disconnects.
+- `[DriverOperation] Identify(channel = null)`:
+  - returns identify string.
+- `[DriverOperation] SetVoltage(voltage, currentLimit = 1.0m, channel = null)`:
+  - applies voltage + current limit and returns status text.
+- `[DriverOperation] SetCurrentLimit(currentLimit, channel = null)`:
+  - applies current limit and returns status text.
+- `[DriverOperation] SetOutput(enabled = true, channel = null)`:
+  - toggles output and returns status text.
+- `[DriverOperation] OutputOff(channel = null)`:
+  - convenience method to disable output.
+
+### Module registrations
+
+#### `Ate.Engine/DeviceIntegration/Modules/DmmDriverModule.cs`
+- `Name => "DMM"`.
+- `Register(IServiceCollection services)`:
+  - registers `IDmmHardwareDriver` demo implementation,
+  - registers configured wrapper descriptor for DMM wrapper.
+
+#### `Ate.Engine/DeviceIntegration/Modules/PsuDriverModule.cs`
+- `Name => "PSU"`.
+- `Register(IServiceCollection services)`:
+  - registers `IPsuHardwareDriver` demo implementation,
+  - registers configured wrapper descriptor for PSU wrapper.
 
 ---
 
-## 10) Ate.Ui (WPF client)
+## 11) Ate.Ui project
 
 ### `Ate.Ui/Ate.Ui.csproj`
-- WPF app on `net6.0-windows`.
-- Uses `CommunityToolkit.Mvvm` for async commands.
-- References `Ate.Contracts` for shared models.
+- WPF desktop application project.
 
-### `Ate.Ui/App.xaml` + `App.xaml.cs`
-- App bootstrap; startup window = `MainWindow`.
+### `Ate.Ui/App.xaml`
+- WPF application resources/root definition.
 
-### `Ate.Ui/MainWindow.xaml` + `MainWindow.xaml.cs`
-- UI layout:
-  - device dropdown,
-  - operation dropdown,
-  - dynamic parameter list (name/type/value text inputs),
-  - command/control buttons,
-  - status textbox.
-- Code-behind sets `DataContext = new MainViewModel()`.
+### `Ate.Ui/App.xaml.cs`
+- Application entry lifecycle code-behind (default WPF app class).
+
+### `Ate.Ui/MainWindow.xaml`
+- Main shell view layout.
+
+### `Ate.Ui/MainWindow.xaml.cs`
+
+#### `MainWindow`
+Methods:
+- constructor:
+  - initializes view,
+  - sets `DataContext` to `MainViewModel`.
 
 ### `Ate.Ui/Services/AteClient.cs`
-Thin HTTP client wrapper around engine endpoints.
 
-- `SendCommandAsync` → `POST api/command`
-- `GetStatusAsync` → `GET api/status`
-- `GetCapabilitiesAsync` → `GET api/capabilities`
-- `PauseAsync` / `ResumeAsync` / `ClearAsync` / `AbortCurrentAsync`
+#### `AteClient`
+Methods:
+- constructor `AteClient(baseAddress = "http://localhost:9000/")`:
+  - creates configured `HttpClient`.
+- `SendCommandAsync(request)`:
+  - POSTs command payload and deserializes `DeviceCommandResponse`.
+- `GetStatusAsync()`:
+  - GETs and deserializes `EngineStatus`.
+- `GetCapabilitiesAsync()`:
+  - GETs and deserializes `List<DeviceCommandDefinition>`.
+- `PauseAsync()`:
+  - POST pause endpoint.
+- `ResumeAsync()`:
+  - POST resume endpoint.
+- `ClearAsync()`:
+  - POST clear endpoint.
+- `AbortCurrentAsync()`:
+  - POST abort-current endpoint.
 
 ### `Ate.Ui/ViewModels/MainViewModel.cs`
-Main MVVM orchestrator.
 
-- State collections:
-  - `Devices`, `Operations`, `ParameterInputs`.
-- Commands:
-  - send, pause, resume, clear, abort.
-- Constructor:
-  - initializes collections and commands,
-  - starts 1-second timer polling `RefreshStatusAsync`,
-  - kicks `InitializeAsync`.
-- `InitializeAsync`:
-  - loads capabilities then starts status timer.
-- `LoadCapabilitiesAsync` + `ApplyCapabilities`:
-  - fetches from engine; populates device list.
-- `SelectedDevice` setter:
-  - rebuilds operations and parameter inputs.
-- `SelectedOperation` setter:
-  - rebuilds parameter inputs.
-- `RebuildParameterInputs`:
-  - merges driver-level params + operation params (dedup by name).
-- `BuildParametersDictionary` + `ConvertParameterValue`:
-  - converts text input into typed request payload values.
-- `SendAsync`:
-  - builds `DeviceCommandRequest` and sends command.
-- `RefreshStatusAsync`:
-  - polls engine status and formats status text.
-- `ExecuteControlAsync`:
-  - generic error wrapper for control actions.
+#### `MainViewModel`
+Methods:
+- constructor:
+  - initializes collections,
+  - creates commands,
+  - starts async initialization + status timer wiring.
+- `SendAsync()`:
+  - validates selections,
+  - builds `DeviceCommandRequest`,
+  - sends command,
+  - updates status text.
+- `RefreshStatusAsync()`:
+  - polls engine status and formats status line.
+- `InitializeAsync()` (private):
+  - loads capabilities then starts polling timer.
+- `LoadCapabilitiesAsync()` (private):
+  - fetches capabilities and applies or clears UI state on failure.
+- `ApplyCapabilities(capabilities)` (private):
+  - populates `Devices` and selects first item.
+- `ExecuteControlAsync(action, actionName)` (private):
+  - wrapper for pause/resume/clear/abort actions.
+- `RebuildOperations()` (private):
+  - updates operation list for selected device.
+- `RebuildParameterInputs()` (private):
+  - rebuilds editable parameter list for selected operation.
+- `BuildParametersDictionary()` (private):
+  - projects input rows into request payload map.
+- `ConvertParameterValue(input)` (private static):
+  - currently sends trimmed text values.
+- `SetField<T>(...)` (private):
+  - common property-changed helper.
+- `OnPropertyChanged(...)` (private):
+  - raises `PropertyChanged`.
 
-### `ParameterInputViewModel` (nested in same file)
-- Holds parameter metadata and editable string value.
-- Exposes `TypeLabel` (e.g., `Number (Decimal)`).
-
----
-
-## 11) End-to-end request walkthrough
-
-Example user action: **Set PSU voltage**
-
-1. UI loads capabilities (`GET /api/capabilities`) and shows `PSU` + `SetVoltage` with `voltage/currentLimit/channel` fields.
-2. User presses **Send**.
-3. UI sends `DeviceCommandRequest` with typed parameters.
-4. Engine `CommandController` validates and normalizes payload.
-5. Engine creates `OperateDeviceCommand` and queues it.
-6. `CommandInvoker` dequeues and executes.
-7. `OperateDeviceCommand` resolves driver in `DriverRegistry` (usually `PSU::default`).
-8. Driver is `PsuDeviceWrapper`; `ExecuteAsync` connects hardware and dispatches operation via `WrapperOperationRuntime.InvokeAsync`.
-9. Reflection binder maps parameter names → method args and applies conversions/defaults.
-10. Wrapper method calls underlying `IPsuHardwareDriver` implementation and returns a result string.
-11. Result logged; queue status updates; UI sees changes on next `GET /api/status` poll.
+#### `ParameterInputViewModel`
+Methods/properties:
+- constructor:
+  - initializes from `CommandParameterDefinition`.
+- `TypeLabel`:
+  - computed display text for kind/number format.
+- `ValueText` setter:
+  - updates value and raises `PropertyChanged`.
 
 ---
 
-## 12) Extension and plugin model
+## 12) Current extension points and practical guidance
 
-Two primary extension paths:
+### A) Configured-wrapper extension path (preferred for first-party families)
+- Add hardware interface + implementation.
+- Add wrapper with `[DriverOperation]` methods.
+- Add module + `ConfiguredWrapperDescriptor`.
+- Add config entries (`deviceType`, `deviceName`, `settings`).
+- Optional: add explicit family definition to `KnownCapabilitiesCatalog`.
 
-1. **Configured wrapper path (recommended)**
-   - implement `IDriverModule`, register hardware + wrapper descriptor.
-   - add config entry in `engine-config.json`.
-   - wrapper constructor can pull values from config/DI.
-
-2. **Direct plugin driver path**
-   - implement `IDeviceDriver` with public parameterless constructor.
-   - place plugin DLL in `drivers/`.
-   - `DriverLoader` auto-registers based on sample instance properties.
-
-For known built-ins, keep wrapper signature aligned with `KnownCapabilitiesCatalog`; startup fails fast on drift.
-
----
-
-## 13) Operational constraints / current behavior nuances
-
-- Queue is in-memory only (no persistence).
-- Worker processes one command at a time.
-- Pause does not remove queued items; it defers processing.
-- Abort cancels only the currently executing command.
-- Reflection invocation currently targets synchronous wrapper methods (wrapped in `Task.FromResult`).
-- UI capability discovery is runtime-driven; no baked fallback schema in viewmodel.
+### B) Direct plugin extension path
+- Build DLL with concrete `IDeviceDriver` and parameterless ctor.
+- Copy to `<engine base dir>/drivers`.
+- Driver currently registers as `deviceType::default`.
+- By default this path does not contribute metadata to `/api/capabilities`.
 
 ---
 
-## 14) Quick “mental model” summary
+## 13) Quick call map (request to execution)
 
-- **Contracts** define the wire shapes.
-- **Engine Runtime** wires DI, config, modules, and HTTP.
-- **Registry** maps logical `(deviceType, driverId)` to wrapper factories/instances + capability metadata.
-- **WrapperOperationRuntime** is the reflection brain (metadata + invocation + contract consistency checks).
-- **CommandInvoker** is the execution pipeline controller.
-- **UI** is a thin capability-driven operator console.
+`UI/AteClient.SendCommandAsync` -> `CommandController.EnqueueCommand` -> `CommandInvoker.Enqueue` -> `CommandInvoker.WorkerLoopAsync` -> `OperateDeviceCommand.ExecuteAsync` -> `DriverRegistry.TryResolve` -> `Wrapper.ExecuteAsync` -> `WrapperOperationRuntime.InvokeAsync` -> `[DriverOperation]` method.
+
+Status path:
+
+`UI timer` -> `AteClient.GetStatusAsync` -> `StatusController.GetStatus` -> `CommandInvoker`/`DriverRegistry` state.
