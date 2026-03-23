@@ -87,7 +87,7 @@ internal static class ConfiguredWrapperFactory
     {
         if (parameter.Name != null && parameter.Name.Equals("driverId", StringComparison.OrdinalIgnoreCase))
         {
-            return config.DriverId;
+            return config.DeviceType;
         }
 
         if (parameter.Name != null && config.Settings.TryGetValue(parameter.Name, out var raw))

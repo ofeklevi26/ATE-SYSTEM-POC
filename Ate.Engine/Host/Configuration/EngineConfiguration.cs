@@ -36,8 +36,8 @@ public sealed class EngineConfiguration
             {
                 new DriverInstanceConfiguration
                 {
+                    DeviceName = "DMM",
                     DeviceType = "DMM",
-                    DriverId = "default",
                     Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["address"] = "192.168.0.10",
@@ -48,11 +48,23 @@ public sealed class EngineConfiguration
                 },
                 new DriverInstanceConfiguration
                 {
+                    DeviceName = "PSU",
                     DeviceType = "PSU",
-                    DriverId = "default",
                     Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["address"] = "192.168.0.20",
+                        ["port"] = "5025",
+                        ["channel"] = "1",
+                        ["endpointFormat"] = "tcp-{address}:{port}"
+                    }
+                },
+                new DriverInstanceConfiguration
+                {
+                    DeviceName = "PSU2",
+                    DeviceType = "PSU",
+                    Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["address"] = "192.168.0.21",
                         ["port"] = "5025",
                         ["channel"] = "1",
                         ["endpointFormat"] = "tcp-{address}:{port}"
@@ -65,11 +77,9 @@ public sealed class EngineConfiguration
 
 public sealed class DriverInstanceConfiguration
 {
+    public string DeviceName { get; set; } = string.Empty;
+
     public string DeviceType { get; set; } = string.Empty;
-
-    public string DriverId { get; set; } = "default";
-
-    public string? WrapperType { get; set; }
 
     public Dictionary<string, string> Settings { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }

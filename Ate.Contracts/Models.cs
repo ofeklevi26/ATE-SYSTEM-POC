@@ -6,7 +6,7 @@ public sealed class DeviceCommandRequest
 {
     public string DeviceType { get; set; } = string.Empty;
 
-    public string? DriverId { get; set; }
+    public string DeviceName { get; set; } = string.Empty;
 
     public string Operation { get; set; } = string.Empty;
 
@@ -98,5 +98,6 @@ public sealed class DeviceCommandDefinition
 
     public List<CommandOperationDefinition> Operations { get; set; } = new List<CommandOperationDefinition>();
 
-    public override string ToString() => DeviceType;
+    public override string ToString() =>
+        string.IsNullOrWhiteSpace(DriverDisplayName) ? DeviceType : DriverDisplayName;
 }

@@ -27,24 +27,39 @@ public sealed class ConfiguredWrapperRegistrar
 
     public void Register(EngineConfiguration configuration)
     {
+        var seenDeviceKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var cfg in configuration.Drivers)
         {
+            ValidateDriverConfiguration(cfg);
+            var deviceKey = $"{cfg.DeviceType}::{cfg.DeviceName}";
+            if (!seenDeviceKeys.Add(deviceKey))
+            {
+                throw new InvalidOperationException($"Duplicate configured device identifier '{deviceKey}'.");
+            }
+
             var descriptor = ResolveDescriptor(cfg);
             if (descriptor == null)
             {
-                _logger.Error($"No wrapper descriptor found for deviceType='{cfg.DeviceType}', wrapperType='{cfg.WrapperType ?? "(auto)"}'.");
+                _logger.Error($"No wrapper descriptor found for deviceType='{cfg.DeviceType}'.");
                 continue;
             }
 
             try
             {
                 var wrapper = ConfiguredWrapperFactory.Create(cfg, descriptor.WrapperType, _serviceProvider);
-                _registry.RegisterInstance(wrapper, WrapperOperationRuntime.BuildDefinition(wrapper));
-                _logger.Info($"Registered configured wrapper '{descriptor.WrapperType.Name}' for {cfg.DeviceType}::{cfg.DriverId}");
+                var definition = WrapperOperationRuntime.BuildDefinition(wrapper);
+                if (!string.IsNullOrWhiteSpace(cfg.DeviceName))
+                {
+                    definition.DriverDisplayName = cfg.DeviceName;
+                }
+
+                _registry.RegisterInstance(wrapper, cfg.DeviceName, definition);
+                _logger.Info($"Registered configured wrapper '{descriptor.WrapperType.Name}' for {cfg.DeviceType}::{cfg.DeviceName}");
             }
             catch (Exception ex)
             {
-                _logger.Error($"Failed to create configured wrapper '{descriptor.WrapperType.FullName}' for driverId='{cfg.DriverId}'.", ex);
+                _logger.Error($"Failed to create configured wrapper '{descriptor.WrapperType.FullName}' for deviceName='{cfg.DeviceName}'.", ex);
 
                 if (IsContractDriftException(ex))
                 {
@@ -62,14 +77,19 @@ public sealed class ConfiguredWrapperRegistrar
 
     private ConfiguredWrapperDescriptor? ResolveDescriptor(DriverInstanceConfiguration configuration)
     {
-        if (!string.IsNullOrWhiteSpace(configuration.WrapperType))
+        return _descriptors.FirstOrDefault(d => d.DeviceType.Equals(configuration.DeviceType, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void ValidateDriverConfiguration(DriverInstanceConfiguration configuration)
+    {
+        if (string.IsNullOrWhiteSpace(configuration.DeviceType))
         {
-            return _descriptors.FirstOrDefault(d =>
-                d.DeviceType.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase) ||
-                d.WrapperType.FullName?.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase) == true ||
-                d.WrapperType.Name.Equals(configuration.WrapperType, StringComparison.OrdinalIgnoreCase));
+            throw new InvalidOperationException($"Configured entry has an empty deviceType for deviceName '{configuration.DeviceName}'.");
         }
 
-        return _descriptors.FirstOrDefault(d => d.DeviceType.Equals(configuration.DeviceType, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(configuration.DeviceName))
+        {
+            throw new InvalidOperationException($"Configured entry for deviceType '{configuration.DeviceType}' is missing required deviceName.");
+        }
     }
 }

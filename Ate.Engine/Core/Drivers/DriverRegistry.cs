@@ -11,38 +11,26 @@ public sealed class DriverRegistry
     private readonly ConcurrentDictionary<string, DriverRegistration> _registrations =
         new ConcurrentDictionary<string, DriverRegistration>(StringComparer.OrdinalIgnoreCase);
 
-    public void Register(string deviceType, string driverId, Func<IDeviceDriver> factory, DeviceCommandDefinition? definition = null)
+    public void Register(
+        string deviceType,
+        string deviceName,
+        Func<IDeviceDriver> factory,
+        DeviceCommandDefinition? definition = null)
     {
-        var key = BuildKey(deviceType, driverId);
-        _registrations[key] = new DriverRegistration(factory, definition);
+        var key = BuildKey(deviceType, deviceName);
+        _registrations[key] = new DriverRegistration(deviceName, factory, definition);
     }
 
-    public void RegisterInstance(IDeviceDriver driver, DeviceCommandDefinition? definition = null)
+    public void RegisterInstance(IDeviceDriver driver, string deviceName, DeviceCommandDefinition? definition = null)
     {
-        Register(driver.DeviceType, driver.DriverId, () => driver, definition);
+        Register(driver.DeviceType, deviceName, () => driver, definition);
     }
 
-    public bool TryResolve(string deviceType, string? driverId, out IDeviceDriver? driver)
+    public bool TryResolve(string deviceType, string deviceName, out IDeviceDriver? driver)
     {
-        if (!string.IsNullOrWhiteSpace(driverId) &&
-            _registrations.TryGetValue(BuildKey(deviceType, driverId), out var explicitRegistration))
+        if (_registrations.TryGetValue(BuildKey(deviceType, deviceName), out var namedRegistration))
         {
-            driver = explicitRegistration.Factory();
-            return true;
-        }
-
-        if (_registrations.TryGetValue(BuildKey(deviceType, "default"), out var defaultRegistration))
-        {
-            driver = defaultRegistration.Factory();
-            return true;
-        }
-
-        var fallback = _registrations.FirstOrDefault(kvp =>
-            kvp.Key.StartsWith(deviceType + "::", StringComparison.OrdinalIgnoreCase));
-
-        if (!string.IsNullOrWhiteSpace(fallback.Key))
-        {
-            driver = fallback.Value.Factory();
+            driver = namedRegistration.Factory();
             return true;
         }
 
@@ -62,22 +50,25 @@ public sealed class DriverRegistry
             .Where(d => d != null)
             .Select(d => d!)
             .OrderBy(d => d.DeviceType)
-            .ThenBy(d => d.DriverId)
+            .ThenBy(d => d.DriverDisplayName)
             .ToList();
     }
 
-    private static string BuildKey(string deviceType, string driverId)
+    private static string BuildKey(string deviceType, string deviceName)
     {
-        return $"{deviceType}::{driverId}";
+        return $"{deviceType}::{deviceName}";
     }
 
     private sealed class DriverRegistration
     {
-        public DriverRegistration(Func<IDeviceDriver> factory, DeviceCommandDefinition? definition)
+        public DriverRegistration(string deviceName, Func<IDeviceDriver> factory, DeviceCommandDefinition? definition)
         {
+            DeviceName = deviceName;
             Factory = factory;
             Definition = definition;
         }
+
+        public string DeviceName { get; }
 
         public Func<IDeviceDriver> Factory { get; }
 
