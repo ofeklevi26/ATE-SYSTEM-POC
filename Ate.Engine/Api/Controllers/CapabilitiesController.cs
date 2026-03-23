@@ -31,7 +31,7 @@ public sealed class CapabilitiesController : ApiController
                 : string.Join(", ", definitions.Select(d => $"{d.DeviceType}/{d.DriverId} ({d.Operations.Count} ops)"));
 
             _logger.Info(
-                $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (driverId source: set per device in engine-config.json; clients send that value in POST /api/command request.driverId. If omitted, engine resolves driverId='default' when available).");
+                $"Capabilities requested: devices={definitions.Count}, operations={operationCount}, definitions=[{summary}] (deviceName source: set per device in engine-config.json; clients must send request.deviceName in POST /api/command to target a configured instrument).");
             return Ok(definitions);
         }
         catch (Exception ex)

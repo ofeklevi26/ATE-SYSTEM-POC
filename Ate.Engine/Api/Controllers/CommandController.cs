@@ -30,19 +30,22 @@ public sealed class CommandController : ApiController
     {
         try
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.DeviceType) || string.IsNullOrWhiteSpace(request.Operation))
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.DeviceType) ||
+                string.IsNullOrWhiteSpace(request.DeviceName) ||
+                string.IsNullOrWhiteSpace(request.Operation))
             {
-                _logger.Error("Rejected command request because DeviceType or Operation is missing.");
-                return BadRequest("DeviceType and Operation are required.");
+                _logger.Error("Rejected command request because DeviceType, DeviceName, or Operation is missing.");
+                return BadRequest("DeviceType, DeviceName, and Operation are required.");
             }
 
             var id = Guid.NewGuid().ToString("N");
             var normalizedParameters = ParameterValueNormalizer.Normalize(request.Parameters);
 
-            if (!_driverRegistry.TryResolve(request.DeviceType, request.DriverId, out var driver) || driver == null)
+            if (!_driverRegistry.TryResolve(request.DeviceType, request.DriverId, request.DeviceName, out var driver) || driver == null)
             {
                 var driverResolutionError =
-                    $"No driver registered for device '{request.DeviceType}' and driverId '{ResolveDriverIdForLog(request.DriverId)}'.";
+                    $"No configured device registered for deviceType '{request.DeviceType}' and deviceName '{request.DeviceName}'.";
                 _commandInvoker.ReportError(driverResolutionError);
                 return BadRequest(GenericCommandValidationError);
             }
@@ -67,13 +70,14 @@ public sealed class CommandController : ApiController
                 request.ClientRequestId,
                 request.DeviceType,
                 request.DriverId,
+                request.DeviceName,
                 request.Operation,
                 normalizedParameters,
                 _driverRegistry,
                 _logger);
 
             _commandInvoker.Enqueue(command);
-            _logger.Info($"Command enqueued: {request.DeviceType}/{ResolveDriverIdForLog(request.DriverId)}::{request.Operation} (serverCommandId={id}).");
+            _logger.Info($"Command enqueued: {request.DeviceType}/{request.DeviceName}::{request.Operation} (serverCommandId={id}).");
 
             return Ok(new DeviceCommandResponse
             {
@@ -88,8 +92,4 @@ public sealed class CommandController : ApiController
         }
     }
 
-    private static string ResolveDriverIdForLog(string? driverId)
-    {
-        return string.IsNullOrWhiteSpace(driverId) ? "default" : driverId;
-    }
 }

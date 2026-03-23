@@ -100,7 +100,7 @@ ATE-SYSTEM-POC/
 ## HTTP API summary
 
 - `GET /api/capabilities` → available devices + operations + parameters.
-- `POST /api/command` → enqueue command (`driverId` in request should match a configured engine `driverId`; if omitted, engine tries `default`).
+- `POST /api/command` → enqueue command (`deviceName` is required to target the configured device instance).
 - `GET /api/status` → engine state, queue depth, current command, last error, loaded drivers.
 - `POST /api/engine/pause`
 - `POST /api/engine/resume`
@@ -110,17 +110,15 @@ ATE-SYSTEM-POC/
 ## Who chooses the driver? (client vs engine)
 
 - **At startup**, engine loads `engine-config.json` and registers available driver instances/wrappers.
-- **At command time**, client chooses target intent by sending `deviceType` + optional `driverId` in `POST /api/command`.
+- **At command time**, client chooses target intent by sending `deviceType` + `deviceName` in `POST /api/command`.
 - **At command time**, engine performs final resolution from the pre-registered drivers in this order:
-  1. exact `deviceType::driverId` (when client provides `driverId`),
-  2. `deviceType::default`,
-  3. first available `deviceType::*` fallback registration.
-- Therefore, to target a specific non-default instance, define it in `engine-config.json` and send that exact `driverId` from the client.
+  1. exact `deviceType::deviceName`.
+- Therefore, always target a specific configured instrument by passing its required `deviceName`.
 
 Engine base address is `http://localhost:9000/`.
 
 Engine logging is wired through Serilog (console + rolling file logs under `Ate.Engine/bin/<Configuration>/net472/logs`).
-Logs use `default` to represent omitted/implicit default driver resolution.
+No implicit default device selection is performed for configured devices; requests must provide `deviceName`.
 
 ## Quick start
 
@@ -142,16 +140,13 @@ dotnet run --project Ate.Ui/Ate.Ui.csproj
 ## Configuration notes (`Ate.Engine/engine-config.json`)
 
 Each driver entry uses:
+- `deviceName` (**required**) identifier for the configured instrument (also used as `driverDisplayName` in capabilities, e.g., `PSU2`)
 - `deviceType` (logical family, e.g., `DMM`)
-- `driverId` (instance selector)
-  - Use `default` for the canonical/fallback driver instance for a device family.
-  - This exact value is what clients send as `driverId` in `POST /api/command`.
-  - To use another instance, add another entry in `engine-config.json` with the same `deviceType` and a different `driverId` (for example `psu-lab2`), then send that `driverId` in command requests.
-- `wrapperType` (optional override, can match descriptor device type, wrapper class name, or full type name)
+- Use `deviceName` to distinguish multiple instruments that share the same `deviceType` (for example `PSU` and `PSU2`).
 - `settings` (string dictionary used for wrapper constructor binding)
 
 Special constructor binding behavior for configured wrappers:
-- `driverId` constructor parameter is populated from config `driverId`.
+- `driverId` constructor parameter is populated from config `deviceType`.
 - Constructor parameter names are matched against `settings` keys (case-insensitive).
 - `endpoint` and `target` constructor parameters support direct keys or `endpointFormat` / `targetFormat` templating.
 - Remaining parameters may come from DI or default constructor values.

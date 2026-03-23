@@ -24,11 +24,11 @@ Implement `IDriverModule`:
 ## How config resolves wrappers
 
 For each entry in `engine-config.json`:
-- if `wrapperType` is present, resolver matches by descriptor device type, wrapper class name, or full type name.
-- otherwise resolver falls back to matching descriptor `deviceType`.
+- resolver matches descriptor by configured `deviceType`.
+- `deviceName` is required and identifies the configured instrument within that `deviceType`.
 
 Then `ConfiguredWrapperFactory` constructs the wrapper from:
-1. config `driverId` → constructor parameter `driverId`
+1. config `deviceType` → constructor parameter `driverId`
 2. `settings[parameterName]`
 3. formatted `endpoint` / `target` expansion
 4. DI services
@@ -40,4 +40,3 @@ Then `ConfiguredWrapperFactory` constructs the wrapper from:
 - Keep constructor parameter names stable and descriptive (`driverId`, `address`, `channel`, `endpoint`).
 - Keep wrapper methods public and mark exposed operations with `[DriverOperation]`.
 - Avoid duplicate operation names (including `[DriverOperation(Name=...)]` aliases), because duplicates are rejected.
-

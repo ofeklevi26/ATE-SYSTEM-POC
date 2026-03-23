@@ -8,6 +8,8 @@ public sealed class DeviceCommandRequest
 
     public string? DriverId { get; set; }
 
+    public string DeviceName { get; set; } = string.Empty;
+
     public string Operation { get; set; } = string.Empty;
 
     public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
