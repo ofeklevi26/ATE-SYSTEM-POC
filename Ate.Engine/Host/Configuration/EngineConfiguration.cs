@@ -13,65 +13,24 @@ public sealed class EngineConfiguration
     {
         if (!File.Exists(path))
         {
-            return CreateDefault();
+            throw new FileNotFoundException($"Engine configuration file was not found at '{path}'.", path);
         }
 
         try
         {
             var raw = File.ReadAllText(path);
             var cfg = JsonConvert.DeserializeObject<EngineConfiguration>(raw);
-            return cfg ?? CreateDefault();
-        }
-        catch
-        {
-            return CreateDefault();
-        }
-    }
-
-    public static EngineConfiguration CreateDefault()
-    {
-        return new EngineConfiguration
-        {
-            Drivers = new List<DriverInstanceConfiguration>
+            if (cfg == null)
             {
-                new DriverInstanceConfiguration
-                {
-                    DeviceName = "DMM",
-                    DeviceType = "DMM",
-                    Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["address"] = "192.168.0.10",
-                        ["port"] = "5025",
-                        ["channel"] = "1",
-                        ["endpointFormat"] = "{address}:{port}"
-                    }
-                },
-                new DriverInstanceConfiguration
-                {
-                    DeviceName = "PSU",
-                    DeviceType = "PSU",
-                    Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["address"] = "192.168.0.20",
-                        ["port"] = "5025",
-                        ["channel"] = "1",
-                        ["endpointFormat"] = "tcp-{address}:{port}"
-                    }
-                },
-                new DriverInstanceConfiguration
-                {
-                    DeviceName = "PSU2",
-                    DeviceType = "PSU",
-                    Settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["address"] = "192.168.0.21",
-                        ["port"] = "5025",
-                        ["channel"] = "1",
-                        ["endpointFormat"] = "tcp-{address}:{port}"
-                    }
-                }
+                throw new InvalidOperationException($"Engine configuration file '{path}' produced an empty configuration.");
             }
-        };
+
+            return cfg;
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Engine configuration file '{path}' contains invalid JSON.", ex);
+        }
     }
 }
 
