@@ -98,5 +98,6 @@ public sealed class DeviceCommandDefinition
 
     public List<CommandOperationDefinition> Operations { get; set; } = new List<CommandOperationDefinition>();
 
-    public override string ToString() => DeviceType;
+    public override string ToString() =>
+        string.IsNullOrWhiteSpace(DriverDisplayName) ? DeviceType : DriverDisplayName;
 }
