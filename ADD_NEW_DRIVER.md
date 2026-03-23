@@ -1,22 +1,22 @@
-# Add a New Driver Family
+# Add a New Configured Driver Family
 
-This is the current end-to-end process for extending the engine.
+This is the current (config-driven) extension path used by `Ate.Engine`.
 
 ## Checklist
 
-1. Add hardware abstraction (optional, but recommended).
-2. Add wrapper implementing `IDeviceDriver`.
-3. Add `[DriverOperation]` methods on wrapper.
-4. Add module implementing `IDriverModule`.
-5. Register `ConfiguredWrapperDescriptor` in module.
-6. Add `engine-config.json` entry.
-7. Build and verify capabilities + command execution.
+1. Add a hardware abstraction (optional but recommended).
+2. Add a wrapper implementing `IDeviceDriver`.
+3. Expose operations with `[DriverOperation]` methods.
+4. Add a module implementing `IDriverModule`.
+5. Register `ConfiguredWrapperDescriptor` in that module.
+6. Add an `engine-config.json` entry (`deviceName`, `deviceType`, `settings`).
+7. Build and verify via `/api/capabilities`, `/api/command`, `/api/status`.
 
 ---
 
 ## 1) Add hardware interface/implementation (optional)
 
-Create an interface under `Ate.Engine/DeviceIntegration/Hardware` and a concrete implementation under `DemoDrivers` (or real SDK adapter in plugin code).
+Put interfaces under `Ate.Engine/DeviceIntegration/Hardware` and implementations under `DemoDrivers` (or your real SDK adapter location).
 
 Example:
 
@@ -79,23 +79,10 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 ```
 
 Notes:
-- `DeviceType` should represent the family key.
+
+- `DeviceType` is the logical family key.
 - Exposed operations must be public and marked `[DriverOperation]`.
-- For explicit/non-UI-friendly contracts, add a matching entry in `Ate.Contracts/KnownCapabilitiesCatalog.cs`; otherwise the engine will use reflection fallback for this family.
-
-
----
-
-## 2.5) (Recommended) Add an explicit contract entry
-
-For stable client integration, add your family to `Ate.Contracts/KnownCapabilitiesCatalog.cs` so operation/parameter schemas are explicit and reusable outside the WPF UI.
-
-At minimum, define:
-- `DeviceType`, `DriverId`, `DriverDisplayName`, `DriverDescription`
-- all operation names and parameter names exactly as wrapper method signatures
-- `Kind`, optional `NumberFormat`, `Nullable`, and `Default` values that match runtime behavior
-
-If omitted, `/api/capabilities` still works via reflection fallback, but the schema is not centrally versioned in contracts.
+- If the family should have strict/stable contracts, add it to `Ate.Contracts/KnownCapabilitiesCatalog.cs`.
 
 ---
 
@@ -116,8 +103,6 @@ public sealed class LoadDriverModule : IDriverModule
 }
 ```
 
-This makes the wrapper discoverable by the configured-wrapper registrar.
-
 ---
 
 ## 4) Add config entry
@@ -126,9 +111,8 @@ In `Ate.Engine/engine-config.json`:
 
 ```json
 {
+  "deviceName": "LOAD1",
   "deviceType": "LOAD",
-  "driverId": "default",
-  "wrapperType": "LOAD",
   "settings": {
     "address": "192.168.0.50",
     "port": "5025",
@@ -140,37 +124,30 @@ In `Ate.Engine/engine-config.json`:
 
 ### Constructor parameter binding order
 
-`ConfiguredWrapperFactory` resolves each constructor argument using:
-1. `driverId` special case
+`ConfiguredWrapperFactory` resolves constructor args in this order:
+
+1. `driverId` parameter gets config `deviceType`
 2. exact `settings` key by parameter name (case-insensitive)
-3. `endpoint` / `target` special formatted values (`endpointFormat` / `targetFormat`)
+3. `endpoint`/`target` special handling (`endpoint`, `target`, or `endpointFormat`/`targetFormat`)
 4. DI resolution by parameter type
 5. default value
 
-If no constructor can be resolved (or constructors are ambiguous), wrapper creation fails.
+If no constructor can be resolved (or multiple are equally resolvable), startup fails for that wrapper.
 
-### Driver selection timing
-- Driver instances are registered at engine startup from `engine-config.json`.
-- Client selects which registered instance to use per command by sending `driverId` in `POST /api/command`.
-- If `driverId` is omitted, engine tries `default` for that device type.
+### Device selection timing
+
+- Configured wrappers are instantiated and registered at startup.
+- The client selects the target instance per command using `deviceType` + `deviceName`.
+- Command requests require `deviceName`.
 
 ---
 
 ## 5) Verify
 
-1. Run engine.
-2. `GET /api/capabilities` and confirm new device/operations appear.
-3. `POST /api/command` for one operation.
-4. `GET /api/status` to confirm queue and loaded drivers.
-
-Example checks:
-
 ```bash
 curl http://localhost:9000/api/capabilities
-curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"LOAD","driverId":"default","operation":"Identify","parameters":{}}'
+curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"LOAD","deviceName":"LOAD1","operation":"Identify","parameters":{}}'
 curl http://localhost:9000/api/status
 ```
 
----
-
-Use `wrapperType` as the only wrapper selector key in configuration.
+If the family is in `KnownCapabilitiesCatalog`, startup also validates wrapper signatures against that contract and throws on drift.

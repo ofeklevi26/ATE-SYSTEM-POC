@@ -1,44 +1,44 @@
 # Add a DLL Driver Plugin
 
-This guide explains the **direct plugin DLL path** for `Ate.Engine`.
+This guide explains the direct plugin-DLL path for `Ate.Engine`.
 
-Use this when you want to ship a driver as a compiled assembly that the engine loads from the `drivers/` folder at startup.
+Use this when you want to ship drivers as compiled assemblies loaded from `<engine base dir>/drivers`.
 
-> If you want config-driven constructor binding (`engine-config.json`) and DI-wired hardware services, use the configured-wrapper flow in `ADD_NEW_DRIVER.md` instead.
-
----
-
-## 1) How DLL discovery works
-
-At startup, the engine:
-
-1. Scans `<engine base dir>/drivers/*.dll`.
-2. Loads discovered assemblies (best effort).
-3. Finds plugin types implementing `IDeviceDriver`.
-4. Registers those plugin drivers into `DriverRegistry`.
-
-This is the "direct plugin driver" path, separate from configured wrappers.
+> If you want config-driven constructor binding from `engine-config.json`, use `ADD_NEW_DRIVER.md`.
 
 ---
 
-## 2) Required contract for a direct plugin driver
+## 1) How DLL discovery currently works
 
-Your plugin type should:
+At startup, engine:
 
-- Implement `Ate.Engine.DeviceIntegration.Contracts.IDeviceDriver`.
-- Be `public` and concrete.
-- Expose a **public parameterless constructor**.
-- Provide stable `DeviceType` and `DriverId` values.
-- Implement `ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)`.
+1. scans `<engine base dir>/drivers/*.dll`,
+2. loads assemblies (best effort),
+3. discovers:
+   - `IDriverModule` implementations (for configured-wrapper registrations),
+   - parameterless concrete `IDeviceDriver` implementations (direct registrations).
 
-A minimal skeleton:
+Direct plugin drivers are currently registered as `deviceType::default` in `DriverRegistry`.
+
+---
+
+## 2) Required contract for direct plugin drivers
+
+Your direct plugin driver type should:
+
+- implement `Ate.Engine.Drivers.IDeviceDriver`,
+- be `public`, concrete, and have a **public parameterless constructor**,
+- provide stable `DeviceType` and operation names,
+- implement `ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)`.
+
+Minimal skeleton:
 
 ```csharp
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Ate.Engine.DeviceIntegration.Contracts;
+using Ate.Engine.Drivers;
 
 namespace Vendor.MyDevicePlugin
 {
@@ -67,124 +67,61 @@ namespace Vendor.MyDevicePlugin
 
 ---
 
-## 3) Capability visibility for plugin drivers
+## 3) Capability visibility for plugin families
 
-The UI and clients discover operations from `GET /api/capabilities`.
+`GET /api/capabilities` is the source of truth.
 
-For plugin/unknown families, the engine can fall back to reflection-based capability discovery. To keep behavior predictable:
+- Known families use `KnownCapabilitiesCatalog`.
+- Unknown families use reflection against `[DriverOperation]` methods.
 
-- Keep operation names stable.
-- Keep parameter names/types stable.
-- Return consistent result shapes.
-
-If your family becomes long-lived, consider adding an explicit contract entry in `Ate.Contracts/KnownCapabilitiesCatalog.cs` (same recommendation as configured wrappers).
+For predictable client behavior, keep operation names and parameter names/types stable.
 
 ---
 
-## 4) Create a plugin project
+## 4) Create plugin project
 
-Create a .NET Class Library targeting a runtime compatible with the engine host.
-
-General setup:
-
-1. Create class library project.
-2. Add references to the engine contracts assembly containing `IDeviceDriver`.
-3. Implement one or more `IDeviceDriver` classes.
+1. Create a .NET class library compatible with engine runtime.
+2. Reference assemblies containing `IDriverModule` and/or `IDeviceDriver`.
+3. Implement plugin module/driver types.
 4. Build in `Release`.
-
-Important notes:
-
-- Keep third-party SDK dependencies alongside your plugin DLL (or otherwise resolvable at runtime).
-- Avoid hardcoding machine-specific paths.
-- Prefer deterministic `DeviceType` and `DriverId` constants.
 
 ---
 
 ## 5) Deploy plugin DLL
 
-1. Build the plugin.
-2. Copy plugin output DLL(s) into:
+1. Build plugin.
+2. Copy plugin DLLs (and dependencies) to:
    - `<engine base dir>/drivers/`
 3. Restart engine.
 
-If your plugin needs additional vendor SDK DLLs, place those next to your plugin DLL unless your loader strategy provides another resolution path.
-
 ---
 
-## 6) Verify end-to-end
-
-After engine starts:
-
-1. Check capabilities:
+## 6) Verify
 
 ```bash
 curl http://localhost:9000/api/capabilities
-```
-
-Confirm your `deviceType` + `driverId` are listed.
-
-2. Execute a command:
-
-```bash
-curl -X POST http://localhost:9000/api/command \
-  -H "Content-Type: application/json" \
-  -d '{"deviceType":"MYDEV","driverId":"default","operation":"Identify","parameters":{}}'
-```
-
-3. Check status/logs:
-
-```bash
+curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"MYDEV","deviceName":"default","operation":"Identify","parameters":{}}'
 curl http://localhost:9000/api/status
 ```
 
-Review engine logs for plugin load or invocation errors.
-
 ---
 
-## 7) Troubleshooting checklist
+## 7) Troubleshooting
 
-### Plugin does not appear in capabilities
+### Plugin not visible
 
-- DLL is not in `<engine base dir>/drivers/`.
-- Missing dependency DLL prevents type load.
-- Driver class is not `public` or does not implement `IDeviceDriver`.
-- No public parameterless constructor.
+- DLL not in `<engine base dir>/drivers`.
+- Missing dependency prevents assembly/type load.
+- Type is not `public`/concrete.
+- Missing parameterless constructor for direct `IDeviceDriver` path.
 
-### Command cannot resolve driver
+### Command cannot resolve device
 
-- Request `deviceType`/`driverId` do not exactly match plugin properties.
-- Multiple plugins using same `(deviceType, driverId)` cause ambiguity/override risk.
+- Request `deviceType`/`deviceName` mismatch.
+- For direct plugin drivers, use `deviceName: "default"` unless you provide configured entries.
 
 ### Command fails at runtime
 
-- `operation` string not supported by `ExecuteAsync`.
-- Parameter conversion mismatch in your plugin parsing logic.
-- Vendor SDK connection settings unavailable on target machine.
-
----
-
-## 8) Direct plugin vs configured-wrapper: when to choose which
-
-Use **direct plugin DLL** when:
-
-- You want minimal integration and self-contained plugin behavior.
-- You can handle operation dispatch inside `ExecuteAsync`.
-
-Use **configured-wrapper** (`ADD_NEW_DRIVER.md`) when:
-
-- You need `engine-config.json`-driven constructor binding.
-- You want DI-provided hardware services.
-- You want `[DriverOperation]`-annotated wrapper methods and standardized wrapper conventions.
-
----
-
-## 9) Practical recommendation
-
-For production integrations, keep these stable from day 1:
-
-- `DeviceType`
-- `DriverId`
-- operation names
-- parameter names and expected types
-
-That keeps `/api/capabilities`, client command payloads, and regression tests aligned as the plugin evolves.
+- Operation name unsupported.
+- Parameter conversion/type mismatch.
+- Vendor SDK runtime dependency missing.

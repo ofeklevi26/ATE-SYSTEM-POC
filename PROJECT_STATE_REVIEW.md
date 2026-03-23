@@ -1,127 +1,95 @@
 # ATE-SYSTEM-POC — Current State Review
 
-This review reflects the repository as it exists now.
+This review reflects the repository state as of March 2026.
 
+## 1) Architecture snapshot
 
-## 1) Current architecture snapshot
+Projects:
 
-### Projects
-- **Ate.Contracts**: request/response DTOs, status model, and capability contract catalog for known families (`KnownCapabilitiesCatalog`).
-- **Ate.Engine**: runtime host, API controllers, command queue, driver registration, contract-first capability resolution with reflection fallback.
-- **Ate.Ui**: WPF MVVM client that consumes capabilities and submits commands.
+- **Ate.Contracts**: DTOs and capability schema objects.
+- **Ate.Engine**: runtime host, API controllers, command queue, driver registry.
+- **Ate.Ui**: WPF client using runtime capabilities.
 
-### Execution flow
-1. UI loads capability definitions from `GET /api/capabilities`.
-2. UI renders operation and parameter inputs from metadata.
-3. UI sends commands to `POST /api/command`.
-4. `CommandInvoker` dequeues and executes `OperateDeviceCommand`.
-5. Selected wrapper executes operation through `WrapperOperationRuntime`.
+Execution flow:
 
-## 2) Engine composition details
+1. Client loads `/api/capabilities`.
+2. Client submits `/api/command` with `deviceType + deviceName + operation`.
+3. `CommandInvoker` dequeues `OperateDeviceCommand`.
+4. Wrapper execution routes through `WrapperOperationRuntime`.
 
-`EngineRuntime.Start()` currently does the following:
-1. Discovers plugin assemblies from `drivers` folder.
-2. Discovers all `IDriverModule` types (built-in + plugins).
-3. Builds DI container with core services and controllers.
-4. Loads `engine-config.json`.
-5. Registers configured wrappers via `ConfiguredWrapperRegistrar`.
-6. Loads direct plugin `IDeviceDriver` implementations through `DriverLoader`.
-7. Starts queue worker and OWIN host.
+## 2) Engine startup composition
 
-## 3) Driver integration model (current and active)
+`EngineRuntime.Start()` currently:
 
-### Required artifacts for a new family
-- wrapper (`IDeviceDriver`) with `[DriverOperation]` methods,
-- module (`IDriverModule`) that registers hardware services and descriptor,
-- config entry in `engine-config.json`.
+1. loads plugin assemblies from `drivers/*.dll`,
+2. discovers all `IDriverModule` types,
+3. builds DI,
+4. loads `engine-config.json`,
+5. registers configured wrappers,
+6. loads direct plugin `IDeviceDriver` types,
+7. starts queue worker and OWIN host.
 
-### No provider class requirement
-Per-family configured-wrapper provider classes are not used in the active model.
+## 3) Driver integration model
 
-### Descriptor selection
-If `wrapperType` is set in config, matching can occur against:
-- descriptor `DeviceType`,
-- wrapper type name,
-- wrapper full type name.
+Configured-wrapper path (primary model):
 
-Otherwise selection falls back to config `deviceType`.
+- wrapper implements `IDeviceDriver` + `[DriverOperation]` methods,
+- module implements `IDriverModule` and registers `ConfiguredWrapperDescriptor`,
+- config entry provides `deviceType`, `deviceName`, and `settings`.
+
+Direct plugin path:
+
+- parameterless `IDeviceDriver` classes discovered from plugin assemblies,
+- registered under `deviceName = "default"`.
 
 ## 4) Constructor binding behavior
 
-Configured wrapper constructor arguments are resolved in this order:
-1. `driverId` parameter from config.
-2. `settings[parameterName]`.
-3. computed `endpoint` or `target` (from direct value or format template).
-4. DI service by parameter type.
-5. default parameter value.
+`ConfiguredWrapperFactory` parameter resolution order:
 
-Formatting notes:
-- `endpointFormat` and `targetFormat` replace `{key}` placeholders with values from `settings`.
-- missing placeholders become empty strings.
+1. `driverId` -> config `deviceType`
+2. `settings[parameterName]`
+3. formatted `endpoint`/`target` values
+4. DI by parameter type
+5. constructor default value
 
 ## 5) Capability generation behavior
 
-`WrapperOperationRuntime.BuildDefinition` now follows a contract-first flow:
-- for known built-in families (`DMM`, `PSU`), returns explicit definitions from `Ate.Contracts.KnownCapabilitiesCatalog`,
-- for unknown/plugin families, reflects public instance methods with `[DriverOperation]`,
-- reflection fallback infers parameter types (`String`, `Integer`, `Decimal`, `Boolean`) and number format metadata.
+`WrapperOperationRuntime.BuildDefinition`:
 
-Duplicate operation names on a wrapper type throw an error.
+- known families (`DMM`, `PSU`) use `KnownCapabilitiesCatalog`,
+- unknown families use reflection on `[DriverOperation]` methods,
+- duplicate operation names are rejected.
+
+Known-family wrappers are validated against catalog signatures at startup.
 
 ## 6) Command runtime behavior
 
 `CommandInvoker`:
-- uses an in-memory concurrent queue,
-- has state values like `Stopped`, `Running`, `Paused`, `Stopping`,
-- supports `Pause`, `Resume`, `ClearPending`, and `AbortCurrent`,
+
+- uses in-memory queue,
+- supports `Pause`, `Resume`, `ClearPending`, `AbortCurrent`,
 - tracks `CurrentCommand` and `LastError`.
 
-Cancellation and command failures are logged and surfaced in `LastError`.
-
-## 6.1) Driver selection lifecycle
-
-- Startup phase: configured wrappers/drivers are loaded and registered in `DriverRegistry`.
-- Command phase: each `POST /api/command` resolves a driver using `(deviceType, driverId)` with fallback to `default` and then first device-type match.
-- Practical rule: client chooses intent by sending `driverId`; engine chooses final match from preloaded registrations.
+`CommandController` rejects commands with missing `deviceType`, `deviceName`, or `operation`, and validates invocation signature/types before enqueue.
 
 ## 7) Built-in integrations
 
-- **DMM**
-  - wrapper: `DmmDeviceWrapper`
-  - module: `DmmDriverModule`
-  - hardware: `DemoDmmHardwareDriver`
-  - operations: `MeasureVoltage`, `Identify`
-
-- **PSU**
-  - wrapper: `PsuDeviceWrapper`
-  - module: `PsuDriverModule`
-  - hardware: `DemoPsuHardwareDriver`
+- **DMM**: `DmmDeviceWrapper`, `DmmDriverModule`, `DemoDmmHardwareDriver`
+  - operations: `Identify`, `MeasureVoltage`
+- **PSU**: `PsuDeviceWrapper`, `PsuDriverModule`, `DemoPsuHardwareDriver`
   - operations: `Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`
 
-## 8) UI behavior status
+## 8) Current constraints
 
-`MainViewModel` currently:
-- loads capabilities at startup,
-- retrieves capability definitions from `GET /api/capabilities` (engine-driven runtime source),
-- rebuilds parameter inputs from selected device + operation,
-- converts input strings into typed payloads (`int`, `decimal`, `bool`, `string`),
-- polls `/api/status` every second,
-- supports pause/resume/clear/abort commands.
+- queue persistence is not implemented,
+- plugin loading is filesystem-based,
+- configured driver selection requires exact `deviceType::deviceName`,
+- wrapper operation methods are expected to be synchronous (runtime wraps return into `Task<object>`).
 
-## 9) Known constraints
+## 9) Recommended next steps
 
-- Queue is in-memory only (no persistence).
-- Wrapper operation invocation currently expects synchronous wrapper operation methods.
-- Command binding requires input for every operation parameter, and missing values fail fast at invocation time.
-- Plugin discovery is filesystem-based (`drivers/*.dll`) with best-effort load.
-
-## 10) Recommended next steps
-
-1. Add automated tests around constructor binding edge cases.
-2. Add integration tests for capability generation and command execution.
-3. Add structured logging context (device type, driver id, operation, command id).
-4. Add optional persistence/replay model for queued commands if durability is required.
-5. Keep `KnownCapabilitiesCatalog` synchronized whenever built-in wrapper method signatures change.
-6. Cross-reference onboarding docs so driver-extension paths are explicit:
-   - use `ADD_NEW_DRIVER.md` for built-in/configured wrappers,
-   - use `ADD_DLL_DRIVER.md` for filesystem plugin DLL onboarding.
+1. Add tests for constructor-binding edge cases.
+2. Add integration tests for capabilities and command execution.
+3. Improve structured logging context around command lifecycle.
+4. Add durability/persistence if queue replay is required.
+5. Keep catalog and wrapper signatures synchronized for known families.

@@ -1,65 +1,50 @@
-# Standalone ATE Client Guide (No WPF UI Required)
+# Standalone ATE Client Guide (No WPF Required)
 
-This document explains how to use `Ate.Engine` as a standalone HTTP server with any external client (CLI, web UI, desktop UI, service worker, test runner), as long as the client can send HTTP requests.
+This document explains using `Ate.Engine` from any HTTP-capable client (CLI, web app, service, test harness).
 
-## Can the server run without `Ate.Ui`?
+## Can engine run without `Ate.Ui`?
 
-Yes.
+Yes. `Ate.Engine` is independent and can run headless.
 
-`Ate.Engine` is an independent OWIN/Web API host and does not require `Ate.Ui` to start or process commands. The UI is only one optional consumer of the HTTP API.
+At startup, engine:
 
-At startup, the engine:
 1. loads modules and configured wrappers,
-2. builds capabilities metadata,
+2. builds capability metadata,
 3. starts queue worker,
-4. serves API endpoints (`/api/capabilities`, `/api/command`, `/api/status`, etc.).
-
-So any custom `AteClient` implementation can work as long as it uses the contracts/payload shapes correctly.
-
----
-
-## Minimum projects you need
-
-For a headless integration you typically need:
-- `Ate.Engine` (server runtime)
-- `Ate.Contracts` (DTO/contracts package)
+4. serves API endpoints.
 
 `Ate.Ui` is optional.
 
 ---
 
-## Who chooses the device?
+## Minimum projects needed
 
-Both, in different roles:
-- The **engine preloads available drivers at startup** from `engine-config.json` (and plugin registrations).
-- The **client chooses intent per command** by sending `deviceType` + `deviceName` in `POST /api/command`.
-- The **engine chooses final match per command** using exact `deviceType::deviceName`.
-
-If you want a specific instrument every time, always send that specific configured `deviceName`.
+- `Ate.Engine` (server runtime)
+- `Ate.Contracts` (DTO/contracts, optional but recommended for typed clients)
 
 ---
 
-## API workflow for another client
+## Device selection model
+
+- Engine preloads configured devices from `engine-config.json`.
+- Client chooses target device for each command by sending `deviceType` + `deviceName`.
+- Resolution is exact key matching (`deviceType::deviceName`).
+
+---
+
+## API workflow
 
 ### 1) Discover capabilities
 
 `GET /api/capabilities`
 
-Use this first so your client can render/build operation forms dynamically.
-
-For known built-in families (e.g. DMM/PSU), capabilities come from `KnownCapabilitiesCatalog` (contract-first).
-For unknown/plugin families, capabilities come from reflection fallback on wrapper methods.
+Use this to populate device/operation/parameter UI dynamically.
 
 ### 2) Submit command
 
 `POST /api/command`
 
 Body shape (`DeviceCommandRequest`):
-
-`deviceName` selection rule:
-- Use the configured `deviceName` values for the target `deviceType` from `engine-config.json`.
-- `deviceName` is required for command requests.
-- To target a different instrument instance, configure another `deviceName` in `engine-config.json` and send that value in `POST /api/command`.
 
 ```json
 {
@@ -75,8 +60,7 @@ Body shape (`DeviceCommandRequest`):
 }
 ```
 
-
-Example for another configured instance (must exist in `engine-config.json`):
+For another configured instance:
 
 ```json
 {
@@ -95,9 +79,9 @@ Example for another configured instance (must exist in `engine-config.json`):
 
 `GET /api/status`
 
-Track queue length, current command, state, and last error.
+Returns queue depth, state, current command, last error, and loaded drivers.
 
-### 4) Optional engine controls
+### 4) Optional controls
 
 - `POST /api/engine/pause`
 - `POST /api/engine/resume`
@@ -106,40 +90,19 @@ Track queue length, current command, state, and last error.
 
 ---
 
-## Important contract notes for custom clients
+## Contract notes for custom clients
 
-1. **Operation + parameter names must match capability metadata exactly.**
-2. **All params are required**: send a value for every operation parameter.
-3. **Known-family drift protection**: for device types backed by `KnownCapabilitiesCatalog`, startup validates wrapper signatures vs catalog and fails fast on mismatch.
-4. **Type conversion**: server converts common string/number representations to target CLR types (`int`, `decimal`, `bool`, etc.).
+1. Operation + parameter names must match capabilities exactly.
+2. Missing required parameters are rejected during validation.
+3. Known families (`DMM`, `PSU`) are contract-validated at startup against `KnownCapabilitiesCatalog`.
+4. Server normalizes common JSON value representations (including numeric token coercions).
 
 ---
 
-## Example: minimal curl-based standalone client
+## Minimal curl sequence
 
 ```bash
-# 1) capabilities
 curl http://localhost:9000/api/capabilities
-
-# 2) command
-curl -X POST http://localhost:9000/api/command \
-  -H "Content-Type: application/json" \
-  -d '{
-    "deviceType":"DMM",
-    "deviceName":"DMM",
-    "operation":"MeasureVoltage",
-    "parameters":{"range":10.0,"channel":1},
-    "clientRequestId":"demo-1"
-  }'
-
-# 3) status
+curl -X POST http://localhost:9000/api/command -H "Content-Type: application/json" -d '{"deviceType":"DMM","deviceName":"DMM","operation":"MeasureVoltage","parameters":{"range":10.0,"channel":1},"clientRequestId":"demo-1"}'
 curl http://localhost:9000/api/status
 ```
-
----
-
-## Recommendation for building another UI/client
-
-- Use `/api/capabilities` as runtime source of truth for selectable devices/operations.
-- Also reference `Ate.Contracts` directly in your client for compile-time DTO safety.
-- If you add a built-in family, keep `KnownCapabilitiesCatalog` synchronized with wrapper signatures.

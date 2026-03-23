@@ -1,17 +1,17 @@
 # Driver Modules
 
-A module wires a device family into DI and exposes a wrapper type for config-based instantiation.
-
+A driver module wires a device family into DI and publishes wrapper descriptors for config-based instantiation.
 
 ## Contract
 
 Implement `IDriverModule`:
+
 - `Name` is informational.
 - `Register(IServiceCollection services)` must register:
-  1. required hardware services for the wrapper constructor,
-  2. one `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
+  1. hardware/services needed by wrapper constructor,
+  2. one `ConfiguredWrapperDescriptor(deviceType, wrapperType)` per wrapper family.
 
-## Built-in module examples
+## Built-in examples
 
 - `DmmDriverModule`
   - registers `IDmmHardwareDriver -> DemoDmmHardwareDriver`
@@ -23,20 +23,22 @@ Implement `IDriverModule`:
 
 ## How config resolves wrappers
 
-For each entry in `engine-config.json`:
-- resolver matches descriptor by configured `deviceType`.
-- `deviceName` is required and identifies the configured instrument within that `deviceType`.
+For each `engine-config.json` entry:
 
-Then `ConfiguredWrapperFactory` constructs the wrapper from:
-1. config `deviceType` → constructor parameter `driverId`
+- descriptor is matched by configured `deviceType`,
+- `deviceName` is required and becomes the runtime instance identifier.
+
+`ConfiguredWrapperFactory` constructor resolution order:
+
+1. `driverId` <= `deviceType`
 2. `settings[parameterName]`
-3. formatted `endpoint` / `target` expansion
+3. formatted `endpoint` / `target`
 4. DI services
-5. default constructor values
+5. parameter default values
 
-## Conventions for reliable behavior
+## Conventions
 
-- Prefer exactly one public wrapper constructor.
-- Keep constructor parameter names stable and descriptive (`driverId`, `address`, `channel`, `endpoint`).
-- Keep wrapper methods public and mark exposed operations with `[DriverOperation]`.
-- Avoid duplicate operation names (including `[DriverOperation(Name=...)]` aliases), because duplicates are rejected.
+- Prefer one public wrapper constructor.
+- Keep constructor parameter names stable (`driverId`, `address`, `channel`, `endpoint`, etc.).
+- Keep exposed operations public and marked `[DriverOperation]`.
+- Avoid duplicate operation names/aliases; duplicates are rejected.
