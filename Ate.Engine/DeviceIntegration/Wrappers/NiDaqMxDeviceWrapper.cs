@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Ate.Engine.Drivers;
@@ -7,11 +6,11 @@ using Ate.Engine.Hardware;
 
 namespace Ate.Engine.Wrappers;
 
-public sealed class DmmDeviceWrapper : IDeviceDriver
+public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
-    private readonly IDmmHardwareDriver _hardware;
+    private readonly INiDaqMxHardwareDriver _hardware;
 
-    public DmmDeviceWrapper(string driverId, string address, int channel, string endpoint, IDmmHardwareDriver hardware)
+    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint, INiDaqMxHardwareDriver hardware)
     {
         DriverId = driverId;
         Address = address;
@@ -20,7 +19,7 @@ public sealed class DmmDeviceWrapper : IDeviceDriver
         _hardware = hardware;
     }
 
-    public string DeviceType => "DMM";
+    public string DeviceType => "NiDaqMx";
 
     public string DriverId { get; }
 
@@ -45,11 +44,18 @@ public sealed class DmmDeviceWrapper : IDeviceDriver
     }
 
     [DriverOperation]
-    public object MeasureVoltage(decimal range = 10.0m, int? channel = null)
+    public object SetContiniousFrequency(decimal frequency, decimal dutyCycle, bool isIdleStateHugh = false, int? channel = null)
     {
         var selectedChannel = channel ?? Channel;
-        var value = _hardware.MeasureVoltage(Address, selectedChannel, range);
-        return new { Value = value.ToString("F3", CultureInfo.InvariantCulture), Unit = "V" };
+        var status = _hardware.SetContiniousFrequency(Address, selectedChannel, frequency, dutyCycle, isIdleStateHugh);
+        return new
+        {
+            Channel = selectedChannel,
+            Frequency = frequency,
+            DutyCycle = dutyCycle,
+            IsIdleStateHugh = isIdleStateHugh,
+            Status = status
+        };
     }
 
     [DriverOperation]

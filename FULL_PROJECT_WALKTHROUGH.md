@@ -17,7 +17,7 @@ This walkthrough is a code-level map of the repository as it exists today. It ex
 4. Client sends `POST /api/command` with `deviceType`, `deviceName`, `operation`, `parameters`.
 5. `CommandController` validates request + invocation and enqueues `OperateDeviceCommand` into `CommandInvoker`.
 6. `CommandInvoker` dequeues and executes commands; `OperateDeviceCommand` resolves the target driver and calls `ExecuteAsync`.
-7. Wrapper (`DmmDeviceWrapper` / `PsuDeviceWrapper` / plugin driver) executes operation through `WrapperOperationRuntime`.
+7. Wrapper (`NiDaqMxDeviceWrapper` / `PsuDeviceWrapper` / plugin driver) executes operation through `WrapperOperationRuntime`.
 8. Client polls `GET /api/status` for queue state/errors and can call engine control endpoints (pause/resume/clear/abort).
 
 ---
@@ -82,13 +82,13 @@ This walkthrough is a code-level map of the repository as it exists today. It ex
 ### `Ate.Contracts/KnownCapabilitiesCatalog.cs`
 
 #### `KnownCapabilitiesCatalog` (static)
-- Contract-first capability definitions for known families (`DMM`, `PSU`).
+- Contract-first capability definitions for known families (`NiDaqMx`, `PSU`).
 
 Methods:
 - `TryCreateDefinition(deviceType, driverId, out definition)`:
   - dispatches to known builders by `deviceType`.
-- `CreateDmmDefinition(driverId)`:
-  - builds explicit DMM metadata for `Identify` + `MeasureVoltage`.
+- `CreateNiDaqMxDefinition(driverId)`:
+  - builds explicit NiDaqMx metadata for `Identify` + `SetContiniousFrequency`.
 - `CreatePsuDefinition(driverId)`:
   - builds explicit PSU metadata for `Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`.
 - `BuildChannelParameter()`:
@@ -530,12 +530,12 @@ Private methods:
 
 ### Hardware interfaces
 
-#### `Ate.Engine/DeviceIntegration/Hardware/IDmmHardwareDriver.cs`
+#### `Ate.Engine/DeviceIntegration/Hardware/INiDaqMxHardwareDriver.cs`
 Methods:
 - `Connect(string connectionTarget)`
 - `Disconnect()`
 - `Identify(string address, int channel)`
-- `MeasureVoltage(string address, int channel, decimal range)`
+- `SetContiniousFrequency(string address, int channel, decimal frequency, decimal dutyCycle, bool isIdleStateHugh)`
 
 #### `Ate.Engine/DeviceIntegration/Hardware/IPsuHardwareDriver.cs`
 Methods:
@@ -548,12 +548,12 @@ Methods:
 
 ### Demo hardware implementations
 
-#### `Ate.Engine/DeviceIntegration/DemoDrivers/DemoDmmHardwareDriver.cs`
+#### `Ate.Engine/DeviceIntegration/DemoDrivers/NiDaqMxHardwareDriver.cs`
 Methods:
 - `Connect(connectionTarget)`: stores endpoint state.
 - `Disconnect()`: resets connection state.
 - `Identify(address, channel)`: returns synthetic identification string.
-- `MeasureVoltage(address, channel, range)`: returns deterministic demo numeric value.
+- `SetContiniousFrequency(address, channel, frequency, dutyCycle, isIdleStateHugh)`: validates and applies simulated PWM configuration state.
 
 #### `Ate.Engine/DeviceIntegration/DemoDrivers/DemoPsuHardwareDriver.cs`
 Methods:
@@ -566,17 +566,17 @@ Methods:
 
 ### Wrapper implementations
 
-#### `Ate.Engine/DeviceIntegration/Wrappers/DmmDeviceWrapper.cs`
+#### `Ate.Engine/DeviceIntegration/Wrappers/NiDaqMxDeviceWrapper.cs`
 Methods:
 - constructor: captures driver/config/hardware dependency.
 - `ExecuteAsync(operation, parameters, token)`:
   - connects hardware endpoint,
   - invokes runtime operation,
   - disconnects in `finally`.
-- `[DriverOperation] MeasureVoltage(range = 10.0m, channel = null)`:
+- `[DriverOperation] SetContiniousFrequency(frequency, dutyCycle, isIdleStateHugh = false, channel = null)`:
   - resolves channel,
-  - reads voltage from hardware,
-  - returns `{ Value, Unit }` object.
+  - configures waveform output in hardware,
+  - returns `{ Channel, Frequency, DutyCycle, IsIdleStateHugh, Status }` object.
 - `[DriverOperation] Identify(channel = null)`:
   - resolves channel,
   - returns hardware identify string.
@@ -599,11 +599,11 @@ Methods:
 
 ### Module registrations
 
-#### `Ate.Engine/DeviceIntegration/Modules/DmmDriverModule.cs`
-- `Name => "DMM"`.
+#### `Ate.Engine/DeviceIntegration/Modules/NiDaqMxDriverModule.cs`
+- `Name => "NiDaqMx"`.
 - `Register(IServiceCollection services)`:
-  - registers `IDmmHardwareDriver` demo implementation,
-  - registers configured wrapper descriptor for DMM wrapper.
+  - registers `INiDaqMxHardwareDriver` demo implementation,
+  - registers configured wrapper descriptor for NiDaqMx wrapper.
 
 #### `Ate.Engine/DeviceIntegration/Modules/PsuDriverModule.cs`
 - `Name => "PSU"`.

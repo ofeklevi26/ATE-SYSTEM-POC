@@ -7,9 +7,9 @@ public static class KnownCapabilitiesCatalog
 {
     public static bool TryCreateDefinition(string deviceType, string driverId, out DeviceCommandDefinition definition)
     {
-        if (deviceType.Equals("DMM", StringComparison.OrdinalIgnoreCase))
+        if (deviceType.Equals("NiDaqMx", StringComparison.OrdinalIgnoreCase))
         {
-            definition = CreateDmmDefinition(driverId);
+            definition = CreateNiDaqMxDefinition(driverId);
             return true;
         }
 
@@ -23,15 +23,15 @@ public static class KnownCapabilitiesCatalog
         return false;
     }
 
-    private static DeviceCommandDefinition CreateDmmDefinition(string driverId)
+    private static DeviceCommandDefinition CreateNiDaqMxDefinition(string driverId)
     {
         return new DeviceCommandDefinition
         {
-            DeviceType = "DMM",
+            DeviceType = "NiDaqMx",
             DriverId = driverId,
-            DriverClassName = "DmmDeviceWrapper",
-            DriverDisplayName = "Digital Multimeter",
-            DriverDescription = "SCPI-compatible DMM wrapper with voltage measurement operations.",
+            DriverClassName = "NiDaqMxDeviceWrapper",
+            DriverDisplayName = "NI-DAQmx",
+            DriverDescription = "NI-DAQmx PWM wrapper for continuous frequency output configuration.",
             Operations = new List<CommandOperationDefinition>
             {
                 new CommandOperationDefinition
@@ -47,21 +47,40 @@ public static class KnownCapabilitiesCatalog
                 },
                 new CommandOperationDefinition
                 {
-                    Name = "MeasureVoltage",
-                    DisplayName = "Measure Voltage",
-                    Description = "Measures DC voltage on the selected channel.",
+                    Name = "SetContiniousFrequency",
+                    DisplayName = "Set Continious Frequency",
+                    Description = "Configures continuous waveform frequency, duty cycle, and idle state for a channel.",
                     ReturnType = "Object",
                     Parameters = new List<CommandParameterDefinition>
                     {
                         new CommandParameterDefinition
                         {
-                            Name = "range",
-                            DisplayName = "Range",
-                            Description = "Voltage range in volts used for measurement.",
+                            Name = "frequency",
+                            DisplayName = "Frequency",
+                            Description = "Output waveform frequency in hertz.",
                             Kind = ParameterKind.Number,
                             NumberFormat = NumberFormat.Decimal,
                             Nullable = false,
-                            Default = "10.0"
+                            Default = "1000.0"
+                        },
+                        new CommandParameterDefinition
+                        {
+                            Name = "dutyCycle",
+                            DisplayName = "Duty Cycle",
+                            Description = "Duty cycle percentage from 0 to 100.",
+                            Kind = ParameterKind.Number,
+                            NumberFormat = NumberFormat.Decimal,
+                            Nullable = false,
+                            Default = "50.0"
+                        },
+                        new CommandParameterDefinition
+                        {
+                            Name = "isIdleStateHugh",
+                            DisplayName = "Idle State High",
+                            Description = "True to keep idle state high, false for low.",
+                            Kind = ParameterKind.Boolean,
+                            Nullable = false,
+                            Default = "false"
                         },
                         BuildChannelParameter()
                     }

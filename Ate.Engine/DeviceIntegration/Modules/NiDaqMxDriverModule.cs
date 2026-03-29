@@ -6,13 +6,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ate.Engine.DeviceIntegration.Modules;
 
-public sealed class DmmDriverModule : IDriverModule
+public sealed class NiDaqMxDriverModule : IDriverModule
 {
-    public string Name => "DMM";
+    public string Name => "NiDaqMx";
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<IDmmHardwareDriver, DemoDmmHardwareDriver>();
-        services.AddSingleton(new ConfiguredWrapperDescriptor("DMM", typeof(DmmDeviceWrapper)));
+        services.AddTransient<INiDaqMxHardwareDriver, NiDaqMxHardwareDriver>();
+        services.AddSingleton(new ConfiguredWrapperDescriptor("NiDaqMx", typeof(NiDaqMxDeviceWrapper)));
     }
 }
