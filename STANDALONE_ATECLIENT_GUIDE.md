@@ -81,7 +81,7 @@ Track queue length, state, current command, last error, and loaded driver keys.
 
 1. Match operation + parameter names exactly as returned by `/api/capabilities`.
 2. Send all operation parameters expected by the selected operation.
-3. For known built-in families (`DMM`, `PSU`), wrapper signatures are checked against `KnownCapabilitiesCatalog` during startup.
+3. For known built-in families (`NiDaqMx`, `PSU`), wrapper signatures are checked against `KnownCapabilitiesCatalog` during startup.
 4. The engine normalizes typical JSON values (`int`, `decimal`, `bool`, arrays/objects) before invocation.
 
 ## Minimal curl example
@@ -94,10 +94,10 @@ curl http://localhost:9000/api/capabilities
 curl -X POST http://localhost:9000/api/command \
   -H "Content-Type: application/json" \
   -d '{
-    "deviceType":"DMM",
-    "deviceName":"DMM",
-    "operation":"MeasureVoltage",
-    "parameters":{"range":10.0,"channel":1},
+    "deviceType":"NiDaqMx",
+    "deviceName":"NiDaqMx",
+    "operation":"SetContiniousFrequency",
+    "parameters":{"frequency":1000.0,"dutyCycle":50.0,"isIdleStateHugh":false,"channel":1},
     "clientRequestId":"demo-1"
   }'
 

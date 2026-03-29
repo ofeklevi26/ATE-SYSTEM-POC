@@ -59,16 +59,16 @@ ATE-SYSTEM-POC/
 │   │       └── ParameterTypeMismatchException.cs
 │   ├── DeviceIntegration/
 │   │   ├── Hardware/
-│   │   │   ├── IDmmHardwareDriver.cs
+│   │   │   ├── INiDaqMxHardwareDriver.cs
 │   │   │   └── IPsuHardwareDriver.cs
 │   │   ├── DemoDrivers/
-│   │   │   ├── DemoDmmHardwareDriver.cs
+│   │   │   ├── NiDaqMxHardwareDriver.cs
 │   │   │   └── DemoPsuHardwareDriver.cs
 │   │   ├── Wrappers/
-│   │   │   ├── DmmDeviceWrapper.cs
+│   │   │   ├── NiDaqMxDeviceWrapper.cs
 │   │   │   └── PsuDeviceWrapper.cs
 │   │   └── Modules/
-│   │       ├── DmmDriverModule.cs
+│   │       ├── NiDaqMxDriverModule.cs
 │   │       ├── PsuDriverModule.cs
 │   │       └── README.md
 │   └── Host/
@@ -98,7 +98,7 @@ ATE-SYSTEM-POC/
 3. Engine discovers all `IDriverModule` implementations (built-in + plugins) and lets each module register DI services and wrapper descriptors.
 4. Engine loads `engine-config.json` and materializes configured wrappers through `ConfiguredWrapperRegistrar` + `ConfiguredWrapperFactory`.
 5. Engine builds per-device command definitions through `WrapperOperationRuntime`:
-   - known families (`DMM`, `PSU`) are generated from `KnownCapabilitiesCatalog` and validated against reflected wrapper signatures,
+   - known families (`NiDaqMx`, `PSU`) are generated from `KnownCapabilitiesCatalog` and validated against reflected wrapper signatures,
    - unknown families use reflection over `[DriverOperation]` methods.
 6. Engine optionally loads direct plugin `IDeviceDriver` implementations via `DriverLoader`.
 7. Engine starts `CommandInvoker` and HTTP API at `http://localhost:9000/`.
@@ -107,7 +107,7 @@ ATE-SYSTEM-POC/
 
 - `GET /api/capabilities`
   - Returns device definitions registered with metadata.
-  - Includes configured wrappers (for example: `DMM`, `PSU`, `PSU2`).
+  - Includes configured wrappers (for example: `NiDaqMx`, `PSU`, `PSU2`).
 - `POST /api/command`
   - Enqueues a command.
   - Required request fields: `deviceType`, `deviceName`, `operation`.
@@ -128,7 +128,7 @@ ATE-SYSTEM-POC/
 
 Configured devices in repo:
 
-- `DMM::DMM`
+- `NiDaqMx::NiDaqMx`
 - `PSU::PSU`
 - `PSU::PSU2`
 

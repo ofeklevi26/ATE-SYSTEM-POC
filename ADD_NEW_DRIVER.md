@@ -80,7 +80,7 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 
 Notes:
 
-- `DeviceType` is the family key (`LOAD`, `DMM`, `PSU`, etc.).
+- `DeviceType` is the family key (`LOAD`, `NiDaqMx`, `PSU`, etc.).
 - Invokable operations must be public and marked with `[DriverOperation]`.
 - Runtime command binding currently requires request payloads to include every operation parameter name.
 

@@ -64,7 +64,7 @@ If multiple constructors are resolvable with equal highest arity, registration f
 
 `WrapperOperationRuntime.BuildDefinition`:
 
-- Uses `KnownCapabilitiesCatalog` for known device types (`DMM`, `PSU`).
+- Uses `KnownCapabilitiesCatalog` for known device types (`NiDaqMx`, `PSU`).
 - Validates known-family reflected signatures against catalog signatures and throws on drift.
 - For unknown families, reflects public instance methods decorated with `[DriverOperation]`.
 - Rejects duplicate operation names/aliases.
@@ -77,7 +77,7 @@ If multiple constructors are resolvable with equal highest arity, registration f
 
 ## Built-in families in this repo
 
-- DMM: `DmmDeviceWrapper`, `DmmDriverModule`, `DemoDmmHardwareDriver`
+- NiDaqMx: `NiDaqMxDeviceWrapper`, `NiDaqMxDriverModule`, `NiDaqMxHardwareDriver`
 - PSU: `PsuDeviceWrapper`, `PsuDriverModule`, `DemoPsuHardwareDriver`
 
 ## Logging

@@ -1,13 +1,12 @@
 {
   "drivers": [
     {
-      "deviceName": "DMM",
-      "deviceType": "DMM",
+      "deviceName": "NiDaqMx",
+      "deviceType": "NiDaqMx",
       "settings": {
-        "address": "192.168.0.10",
-        "port": "5025",
+        "address": "NI_9444",
         "channel": "1",
-        "endpointFormat": "{address}:{port}"
+        "endpoint": "NI_9444_slot1"
       }
     },
     {

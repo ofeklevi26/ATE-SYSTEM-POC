@@ -13,9 +13,9 @@ Implement `IDriverModule`:
 
 ## Built-in module examples
 
-- `DmmDriverModule`
-  - registers `IDmmHardwareDriver -> DemoDmmHardwareDriver`
-  - registers descriptor `("DMM", typeof(DmmDeviceWrapper))`
+- `NiDaqMxDriverModule`
+  - registers `INiDaqMxHardwareDriver -> NiDaqMxHardwareDriver`
+  - registers descriptor `("NiDaqMx", typeof(NiDaqMxDeviceWrapper))`
 
 - `PsuDriverModule`
   - registers `IPsuHardwareDriver -> DemoPsuHardwareDriver`

@@ -66,7 +66,7 @@ Multiple equal-best resolvable constructors are rejected as ambiguous.
 
 `WrapperOperationRuntime.BuildDefinition` follows a contract-first flow:
 
-- known families (`DMM`, `PSU`) use `KnownCapabilitiesCatalog` definitions,
+- known families (`NiDaqMx`, `PSU`) use `KnownCapabilitiesCatalog` definitions,
 - known-family wrapper signatures are validated against catalog operations/parameters and throw on drift,
 - unknown families use reflection fallback over `[DriverOperation]` methods,
 - duplicate operation names are rejected.
@@ -88,14 +88,14 @@ Command validation now occurs before enqueue in `CommandController`:
 
 ## 7) Built-in integrations in repo
 
-- **DMM** (`DmmDeviceWrapper`, `DmmDriverModule`, `DemoDmmHardwareDriver`)
-  - operations: `Identify`, `MeasureVoltage`
+- **NiDaqMx** (`NiDaqMxDeviceWrapper`, `NiDaqMxDriverModule`, `NiDaqMxHardwareDriver`)
+  - operations: `Identify`, `SetContiniousFrequency`
 - **PSU** (`PsuDeviceWrapper`, `PsuDriverModule`, `DemoPsuHardwareDriver`)
   - operations: `Identify`, `SetVoltage`, `SetCurrentLimit`, `SetOutput`, `OutputOff`
 
 Default `engine-config.json` includes:
 
-- `DMM::DMM`
+- `NiDaqMx::NiDaqMx`
 - `PSU::PSU`
 - `PSU::PSU2`
 
