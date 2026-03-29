@@ -76,5 +76,19 @@ public sealed class NiDaqMxHardwareDriver : INiDaqMxHardwareDriver
         return _connectionTarget;
     }
 
-    private sealed record ChannelWaveformState(decimal Frequency, decimal DutyCycle, bool IsIdleStateHugh);
+    private sealed class ChannelWaveformState
+    {
+        public ChannelWaveformState(decimal frequency, decimal dutyCycle, bool isIdleStateHugh)
+        {
+            Frequency = frequency;
+            DutyCycle = dutyCycle;
+            IsIdleStateHugh = isIdleStateHugh;
+        }
+
+        public decimal Frequency { get; }
+
+        public decimal DutyCycle { get; }
+
+        public bool IsIdleStateHugh { get; }
+    }
 }
