@@ -2,33 +2,51 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Ate.Engine.Hardware;
+using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.DemoDrivers;
 
-public sealed class NiDaqMxHardwareDriver : INiDaqMxHardwareDriver
+public sealed class NiDaqMxHardwareDriverBuilder : INiDaqMxDriverBuilder
+{
+    public INiDaqMxDriverAdapter BuildDaqMxDriverAdapter(string deviceName, ILogger? logger = null)
+    {
+        return new NiDaqMxHardwareDriverAdapter(deviceName, logger);
+    }
+}
+
+public sealed class NiDaqMxHardwareDriverAdapter : INiDaqMxDriverAdapter
 {
     private readonly Dictionary<int, ChannelWaveformState> _channelState = new();
-    private string? _connectionTarget;
+    private readonly string _deviceName;
+    private readonly ILogger? _logger;
+    private bool _connected;
 
-    public void Connect(string connectionTarget)
+    public NiDaqMxHardwareDriverAdapter(string deviceName, ILogger? logger = null)
     {
-        if (string.IsNullOrWhiteSpace(connectionTarget))
+        if (string.IsNullOrWhiteSpace(deviceName))
         {
-            throw new InvalidOperationException("NI-DAQmx connection target is required.");
+            throw new InvalidOperationException("NI-DAQmx device name is required.");
         }
 
-        if (!connectionTarget.Contains("_slot", StringComparison.OrdinalIgnoreCase))
+        _deviceName = deviceName.Trim();
+        _logger = logger;
+    }
+
+    public void Connect()
+    {
+        if (!_deviceName.Contains("Dev", StringComparison.OrdinalIgnoreCase) && !_deviceName.Contains("slot", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                $"Invalid NI-DAQmx connection target '{connectionTarget}'. Expected format like 'NI_9444_slot1'.");
+                $"Invalid NI-DAQmx device name '{_deviceName}'. Expected a value like 'Dev9220' or 'NI_9444_slot1'.");
         }
 
-        _connectionTarget = connectionTarget.Trim();
+        _connected = true;
+        _logger?.Info($"NI-DAQmx adapter connected to {_deviceName}.");
     }
 
     public void Disconnect()
     {
-        _connectionTarget = null;
+        _connected = false;
     }
 
     public string Identify(string address, int channel)
@@ -68,12 +86,12 @@ public sealed class NiDaqMxHardwareDriver : INiDaqMxHardwareDriver
 
     private string RequireConnection()
     {
-        if (string.IsNullOrWhiteSpace(_connectionTarget))
+        if (!_connected)
         {
-            throw new InvalidOperationException("No NI-DAQmx connection is active. Call Connect first.");
+            throw new InvalidOperationException("No NI-DAQmx adapter connection is active. Build an adapter and call Connect first.");
         }
 
-        return _connectionTarget;
+        return _deviceName;
     }
 
     private sealed class ChannelWaveformState

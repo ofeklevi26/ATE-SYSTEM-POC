@@ -1,8 +1,15 @@
+using Ate.Engine.Infrastructure;
+
 namespace Ate.Engine.Hardware;
 
-public interface INiDaqMxHardwareDriver
+public interface INiDaqMxDriverBuilder
 {
-    void Connect(string connectionTarget);
+    INiDaqMxDriverAdapter BuildDaqMxDriverAdapter(string deviceName, ILogger? logger = null);
+}
+
+public interface INiDaqMxDriverAdapter
+{
+    void Connect();
 
     void Disconnect();
 

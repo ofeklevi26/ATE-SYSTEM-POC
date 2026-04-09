@@ -8,15 +8,15 @@ namespace Ate.Engine.Wrappers;
 
 public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
-    private readonly INiDaqMxHardwareDriver _hardware;
+    private readonly INiDaqMxDriverAdapter _adapter;
 
-    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint, INiDaqMxHardwareDriver hardware)
+    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint, INiDaqMxDriverBuilder builder)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        _hardware = hardware;
+        _adapter = builder.BuildDaqMxDriverAdapter(endpoint);
     }
 
     public string DeviceType => "NiDaqMx";
@@ -32,14 +32,15 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        _hardware.Connect(Endpoint);
+        _adapter.Connect();
+
         try
         {
             return WrapperOperationRuntime.InvokeAsync(this, operation, parameters, token);
         }
         finally
         {
-            _hardware.Disconnect();
+            _adapter.Disconnect();
         }
     }
 
@@ -47,7 +48,7 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
     public object SetContiniousFrequency(decimal frequency, decimal dutyCycle, bool isIdleStateHugh = false, int? channel = null)
     {
         var selectedChannel = channel ?? Channel;
-        var status = _hardware.SetContiniousFrequency(Address, selectedChannel, frequency, dutyCycle, isIdleStateHugh);
+        var status = _adapter.SetContiniousFrequency(Address, selectedChannel, frequency, dutyCycle, isIdleStateHugh);
         return new
         {
             Channel = selectedChannel,
@@ -62,6 +63,6 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
     public object Identify(int? channel = null)
     {
         var selectedChannel = channel ?? Channel;
-        return _hardware.Identify(Address, selectedChannel);
+        return _adapter.Identify(Address, selectedChannel);
     }
 }

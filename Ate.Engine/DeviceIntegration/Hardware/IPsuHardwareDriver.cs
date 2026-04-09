@@ -1,8 +1,15 @@
+using Ate.Engine.Infrastructure;
+
 namespace Ate.Engine.Hardware;
 
-public interface IPsuHardwareDriver
+public interface IPsuDriverBuilder
 {
-    void Connect(string connectionTarget);
+    IPsuDriverAdapter BuildPsuDriverAdapter(string deviceName, ILogger? logger = null);
+}
+
+public interface IPsuDriverAdapter
+{
+    void Connect();
 
     void Disconnect();
 

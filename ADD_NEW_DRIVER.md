@@ -4,7 +4,7 @@ This is the active end-to-end process for extending the engine with config-drive
 
 ## Checklist
 
-1. Add hardware abstraction (optional but recommended).
+1. Add hardware builder/adapter abstraction (optional but recommended).
 2. Add wrapper implementing `IDeviceDriver`.
 3. Add `[DriverOperation]` methods to wrapper.
 4. Add module implementing `IDriverModule`.
@@ -14,18 +14,23 @@ This is the active end-to-end process for extending the engine with config-drive
 
 ---
 
-## 1) Add hardware interface/implementation (optional)
+## 1) Add hardware builder/adapter interfaces (optional)
 
-Create an interface under `Ate.Engine/DeviceIntegration/Hardware` and a concrete implementation under `DemoDrivers` (or real SDK adapter in plugin code).
+Create interfaces under `Ate.Engine/DeviceIntegration/Hardware` and a concrete implementation under `DemoDrivers` (or a real SDK adapter in plugin code).
 
 Example:
 
 ```csharp
-public interface ILoadHardwareDriver
+public interface ILoadDriverBuilder
 {
-    string Identify(string address, int channel);
-    void Connect(string endpoint);
+    ILoadDriverAdapter BuildLoadDriverAdapter(string endpoint, ILogger? logger = null);
+}
+
+public interface ILoadDriverAdapter
+{
+    void Connect();
     void Disconnect();
+    string Identify(string address, int channel);
 }
 ```
 
@@ -38,15 +43,15 @@ Create `Ate.Engine/DeviceIntegration/Wrappers/LoadDeviceWrapper.cs`:
 ```csharp
 public sealed class LoadDeviceWrapper : IDeviceDriver
 {
-    private readonly ILoadHardwareDriver _hardware;
+    private readonly ILoadDriverAdapter _adapter;
 
-    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadHardwareDriver hardware)
+    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadDriverBuilder builder)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        _hardware = hardware;
+        _adapter = builder.BuildLoadDriverAdapter(endpoint);
     }
 
     public string DeviceType => "LOAD";
@@ -58,14 +63,14 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        _hardware.Connect(Endpoint);
+        _adapter.Connect();
         try
         {
             return WrapperOperationRuntime.InvokeAsync(this, operation, parameters, token);
         }
         finally
         {
-            _hardware.Disconnect();
+            _adapter.Disconnect();
         }
     }
 
@@ -73,7 +78,7 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
     public object Identify(int? channel = null)
     {
         var selected = channel ?? Channel;
-        return _hardware.Identify(Address, selected);
+        return _adapter.Identify(Address, selected);
     }
 }
 ```
@@ -111,7 +116,7 @@ public sealed class LoadDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<ILoadHardwareDriver, DemoLoadHardwareDriver>();
+        services.AddTransient<ILoadDriverBuilder, DemoLoadHardwareDriverBuilder>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("LOAD", typeof(LoadDeviceWrapper)));
     }
 }
