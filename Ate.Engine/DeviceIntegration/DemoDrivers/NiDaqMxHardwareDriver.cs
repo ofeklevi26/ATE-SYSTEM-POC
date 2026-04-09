@@ -6,11 +6,33 @@ using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.DemoDrivers;
 
+public sealed class NiDaqMxHardwareDriverBuilderFactory : INiDaqMxDriverBuilderFactory
+{
+    public INiDaqMxDriverBuilder CreateDaqMxBuilder(string endpoint, ILogger? logger = null)
+    {
+        return new NiDaqMxHardwareDriverBuilder(endpoint, logger);
+    }
+}
+
 public sealed class NiDaqMxHardwareDriverBuilder : INiDaqMxDriverBuilder
 {
-    public INiDaqMxDriverAdapter BuildDaqMxDriverAdapter(string deviceName, ILogger? logger = null)
+    private readonly string _endpoint;
+    private readonly ILogger? _logger;
+
+    public NiDaqMxHardwareDriverBuilder(string endpoint, ILogger? logger = null)
     {
-        return new NiDaqMxHardwareDriverAdapter(deviceName, logger);
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            throw new InvalidOperationException("NI-DAQmx endpoint is required.");
+        }
+
+        _endpoint = endpoint.Trim();
+        _logger = logger;
+    }
+
+    public INiDaqMxDriverAdapter BuildDaqMxDriverAdapter()
+    {
+        return new NiDaqMxHardwareDriverAdapter(_endpoint, _logger);
     }
 }
 
@@ -23,21 +45,16 @@ public sealed class NiDaqMxHardwareDriverAdapter : INiDaqMxDriverAdapter
 
     public NiDaqMxHardwareDriverAdapter(string deviceName, ILogger? logger = null)
     {
-        if (string.IsNullOrWhiteSpace(deviceName))
-        {
-            throw new InvalidOperationException("NI-DAQmx device name is required.");
-        }
-
-        _deviceName = deviceName.Trim();
+        _deviceName = deviceName;
         _logger = logger;
     }
 
     public void Connect()
     {
-        if (!_deviceName.Contains("Dev", StringComparison.OrdinalIgnoreCase) && !_deviceName.Contains("slot", StringComparison.OrdinalIgnoreCase))
+        if (!_deviceName.StartsWith("Dev", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                $"Invalid NI-DAQmx device name '{_deviceName}'. Expected a value like 'Dev9220' or 'NI_9444_slot1'.");
+                $"Invalid NI-DAQmx endpoint '{_deviceName}'. Expected format 'Dev<number>' (for example: 'Dev9220').");
         }
 
         _connected = true;

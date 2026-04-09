@@ -2,9 +2,14 @@ using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.Hardware;
 
+public interface IPsuDriverBuilderFactory
+{
+    IPsuDriverBuilder CreatePsuBuilder(string endpoint, ILogger? logger = null);
+}
+
 public interface IPsuDriverBuilder
 {
-    IPsuDriverAdapter BuildPsuDriverAdapter(string deviceName, ILogger? logger = null);
+    IPsuDriverAdapter BuildPsuDriverAdapter();
 }
 
 public interface IPsuDriverAdapter

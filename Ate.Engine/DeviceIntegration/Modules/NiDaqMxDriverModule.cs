@@ -12,7 +12,7 @@ public sealed class NiDaqMxDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<INiDaqMxDriverBuilder, NiDaqMxHardwareDriverBuilder>();
+        services.AddTransient<INiDaqMxDriverBuilderFactory, NiDaqMxHardwareDriverBuilderFactory>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("NiDaqMx", typeof(NiDaqMxDeviceWrapper)));
     }
 }

@@ -4,11 +4,33 @@ using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.DemoDrivers;
 
+public sealed class DemoPsuHardwareDriverBuilderFactory : IPsuDriverBuilderFactory
+{
+    public IPsuDriverBuilder CreatePsuBuilder(string endpoint, ILogger? logger = null)
+    {
+        return new DemoPsuHardwareDriverBuilder(endpoint, logger);
+    }
+}
+
 public sealed class DemoPsuHardwareDriverBuilder : IPsuDriverBuilder
 {
-    public IPsuDriverAdapter BuildPsuDriverAdapter(string deviceName, ILogger? logger = null)
+    private readonly string _endpoint;
+    private readonly ILogger? _logger;
+
+    public DemoPsuHardwareDriverBuilder(string endpoint, ILogger? logger = null)
     {
-        return new DemoPsuHardwareDriverAdapter(deviceName, logger);
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            throw new InvalidOperationException("PSU endpoint is required.");
+        }
+
+        _endpoint = endpoint.Trim();
+        _logger = logger;
+    }
+
+    public IPsuDriverAdapter BuildPsuDriverAdapter()
+    {
+        return new DemoPsuHardwareDriverAdapter(_endpoint, _logger);
     }
 }
 
