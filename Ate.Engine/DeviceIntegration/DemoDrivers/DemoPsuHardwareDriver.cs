@@ -4,20 +4,12 @@ using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.DemoDrivers;
 
-public sealed class DemoPsuHardwareDriverBuilderFactory : IPsuDriverBuilderFactory
-{
-    public IPsuDriverBuilder CreatePsuBuilder(string endpoint, ILogger? logger = null)
-    {
-        return new DemoPsuHardwareDriverBuilder(endpoint, logger);
-    }
-}
-
 public sealed class DemoPsuHardwareDriverBuilder : IPsuDriverBuilder
 {
-    private readonly string _endpoint;
-    private readonly ILogger? _logger;
+    private string? _endpoint;
+    private ILogger? _logger;
 
-    public DemoPsuHardwareDriverBuilder(string endpoint, ILogger? logger = null)
+    public void SetEndpoint(string endpoint, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -30,6 +22,11 @@ public sealed class DemoPsuHardwareDriverBuilder : IPsuDriverBuilder
 
     public IPsuDriverAdapter BuildPsuDriverAdapter()
     {
+        if (string.IsNullOrWhiteSpace(_endpoint))
+        {
+            throw new InvalidOperationException("PSU endpoint was not set on the builder.");
+        }
+
         return new DemoPsuHardwareDriverAdapter(_endpoint, _logger);
     }
 }

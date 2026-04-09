@@ -77,8 +77,8 @@ If multiple constructors are resolvable with equal highest arity, registration f
 
 ## Built-in families in this repo
 
-- NiDaqMx: `NiDaqMxDeviceWrapper`, `NiDaqMxDriverModule`, `NiDaqMxHardwareDriverBuilderFactory` + `NiDaqMxHardwareDriverBuilder` + `NiDaqMxHardwareDriverAdapter`
-- PSU: `PsuDeviceWrapper`, `PsuDriverModule`, `DemoPsuHardwareDriverBuilderFactory` + `DemoPsuHardwareDriverBuilder` + `DemoPsuHardwareDriverAdapter`
+- NiDaqMx: `NiDaqMxDeviceWrapper`, `NiDaqMxDriverModule`, `NiDaqMxHardwareDriverBuilder` + `NiDaqMxHardwareDriverAdapter`
+- PSU: `PsuDeviceWrapper`, `PsuDriverModule`, `DemoPsuHardwareDriverBuilder` + `DemoPsuHardwareDriverAdapter`
 
 ## Logging
 

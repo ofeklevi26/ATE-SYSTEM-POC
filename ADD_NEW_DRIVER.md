@@ -21,13 +21,9 @@ Create interfaces under `Ate.Engine/DeviceIntegration/Hardware` and a concrete i
 Example:
 
 ```csharp
-public interface ILoadDriverBuilderFactory
-{
-    ILoadDriverBuilder CreateLoadBuilder(string endpoint, ILogger? logger = null);
-}
-
 public interface ILoadDriverBuilder
 {
+    void SetEndpoint(string endpoint, ILogger? logger = null);
     ILoadDriverAdapter BuildLoadDriverAdapter();
 }
 
@@ -50,13 +46,13 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 {
     private readonly ILoadDriverAdapter _adapter;
 
-    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadDriverBuilderFactory builderFactory)
+    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadDriverBuilder builder)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        var builder = builderFactory.CreateLoadBuilder(endpoint);
+        builder.SetEndpoint(endpoint);
         _adapter = builder.BuildLoadDriverAdapter();
     }
 
@@ -122,7 +118,7 @@ public sealed class LoadDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<ILoadDriverBuilderFactory, DemoLoadHardwareDriverBuilderFactory>();
+        services.AddTransient<ILoadDriverBuilder, DemoLoadHardwareDriverBuilder>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("LOAD", typeof(LoadDeviceWrapper)));
     }
 }

@@ -11,13 +11,13 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
 {
     private readonly IPsuDriverAdapter _adapter;
 
-    public PsuDeviceWrapper(string driverId, string address, int channel, string endpoint, IPsuDriverBuilderFactory builderFactory)
+    public PsuDeviceWrapper(string driverId, string address, int channel, string endpoint, IPsuDriverBuilder builder)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        var builder = builderFactory.CreatePsuBuilder(endpoint);
+        builder.SetEndpoint(endpoint);
         _adapter = builder.BuildPsuDriverAdapter();
     }
 

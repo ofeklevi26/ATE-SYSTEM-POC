@@ -10,13 +10,13 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
     private readonly INiDaqMxDriverAdapter _adapter;
 
-    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint, INiDaqMxDriverBuilderFactory builderFactory)
+    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint, INiDaqMxDriverBuilder builder)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        var builder = builderFactory.CreateDaqMxBuilder(endpoint);
+        builder.SetEndpoint(endpoint);
         _adapter = builder.BuildDaqMxDriverAdapter();
     }
 

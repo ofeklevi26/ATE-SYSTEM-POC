@@ -14,11 +14,11 @@ Implement `IDriverModule`:
 ## Built-in module examples
 
 - `NiDaqMxDriverModule`
-  - registers `INiDaqMxDriverBuilderFactory -> NiDaqMxHardwareDriverBuilderFactory`
+  - registers `INiDaqMxDriverBuilder -> NiDaqMxHardwareDriverBuilder`
   - registers descriptor `("NiDaqMx", typeof(NiDaqMxDeviceWrapper))`
 
 - `PsuDriverModule`
-  - registers `IPsuDriverBuilderFactory -> DemoPsuHardwareDriverBuilderFactory`
+  - registers `IPsuDriverBuilder -> DemoPsuHardwareDriverBuilder`
   - registers descriptor `("PSU", typeof(PsuDeviceWrapper))`
 
 ## How config resolves wrappers

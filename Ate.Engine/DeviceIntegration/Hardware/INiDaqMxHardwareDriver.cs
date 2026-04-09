@@ -2,13 +2,10 @@ using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.Hardware;
 
-public interface INiDaqMxDriverBuilderFactory
-{
-    INiDaqMxDriverBuilder CreateDaqMxBuilder(string endpoint, ILogger? logger = null);
-}
-
 public interface INiDaqMxDriverBuilder
 {
+    void SetEndpoint(string endpoint, ILogger? logger = null);
+
     INiDaqMxDriverAdapter BuildDaqMxDriverAdapter();
 }
 

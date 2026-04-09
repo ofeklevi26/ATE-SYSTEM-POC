@@ -6,20 +6,12 @@ using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.DemoDrivers;
 
-public sealed class NiDaqMxHardwareDriverBuilderFactory : INiDaqMxDriverBuilderFactory
-{
-    public INiDaqMxDriverBuilder CreateDaqMxBuilder(string endpoint, ILogger? logger = null)
-    {
-        return new NiDaqMxHardwareDriverBuilder(endpoint, logger);
-    }
-}
-
 public sealed class NiDaqMxHardwareDriverBuilder : INiDaqMxDriverBuilder
 {
-    private readonly string _endpoint;
-    private readonly ILogger? _logger;
+    private string? _endpoint;
+    private ILogger? _logger;
 
-    public NiDaqMxHardwareDriverBuilder(string endpoint, ILogger? logger = null)
+    public void SetEndpoint(string endpoint, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -32,6 +24,11 @@ public sealed class NiDaqMxHardwareDriverBuilder : INiDaqMxDriverBuilder
 
     public INiDaqMxDriverAdapter BuildDaqMxDriverAdapter()
     {
+        if (string.IsNullOrWhiteSpace(_endpoint))
+        {
+            throw new InvalidOperationException("NI-DAQmx endpoint was not set on the builder.");
+        }
+
         return new NiDaqMxHardwareDriverAdapter(_endpoint, _logger);
     }
 }
