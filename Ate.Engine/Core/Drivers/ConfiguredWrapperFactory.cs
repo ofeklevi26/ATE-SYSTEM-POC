@@ -68,9 +68,7 @@ internal static class ConfiguredWrapperFactory
             return true;
         }
 
-        if (parameter.Name != null &&
-            (parameter.Name.Equals("endpoint", StringComparison.OrdinalIgnoreCase) ||
-             parameter.Name.Equals("target", StringComparison.OrdinalIgnoreCase)))
+        if (parameter.Name != null && parameter.Name.Equals("endpoint", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -100,10 +98,6 @@ internal static class ConfiguredWrapperFactory
             return BuildFormattedSetting(config.Settings, "endpoint", "endpointFormat", "address");
         }
 
-        if (parameter.Name != null && parameter.Name.Equals("target", StringComparison.OrdinalIgnoreCase))
-        {
-            return BuildFormattedSetting(config.Settings, "target", "targetFormat", "address");
-        }
 
         var service = services.GetService(parameter.ParameterType);
         if (service != null)

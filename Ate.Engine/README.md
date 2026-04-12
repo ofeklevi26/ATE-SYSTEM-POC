@@ -52,7 +52,7 @@ For each selected wrapper constructor parameter:
 
 1. `driverId` => config `deviceType`.
 2. direct `settings` value by parameter name.
-3. computed `endpoint` / `target` value from direct key or `endpointFormat` / `targetFormat`.
+3. computed `endpoint` value from direct key or `endpointFormat`.
 4. DI service by parameter type.
 5. constructor default value.
 

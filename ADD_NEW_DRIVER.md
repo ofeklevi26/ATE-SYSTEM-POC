@@ -157,7 +157,7 @@ Notes for config shape:
 
 1. `driverId` special case => config `deviceType`
 2. exact `settings` key by parameter name (case-insensitive)
-3. `endpoint` / `target` formatted value (`endpointFormat` / `targetFormat`) or direct key value
+3. `endpoint` formatted value (`endpointFormat`) or direct key value
 4. DI resolution by parameter type
 5. default constructor value
 

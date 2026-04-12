@@ -32,14 +32,14 @@ For each entry in `engine-config.json`:
 
 1. parameter `driverId` gets config `deviceType`
 2. `settings[parameterName]`
-3. `endpoint`/`target` direct value or format expansion
+3. `endpoint` direct value or format expansion
 4. DI service by parameter type
 5. constructor default value
 
 ## Conventions for reliable behavior
 
 - Prefer a single public wrapper constructor.
-- Keep constructor parameter names stable and descriptive (`driverId`, `address`, `card_number`, `channel`, `endpoint`, `target`).
+- Keep constructor parameter names stable and descriptive (`driverId`, `address`, `card_number`, `channel`, `endpoint`).
 - Keep wrapper methods public and annotate invokable operations with `[DriverOperation]`.
 - Avoid duplicate operation names (including attribute aliases) because duplicates are rejected.
 - Keep wrapper method signatures in sync with `KnownCapabilitiesCatalog` for known families.
