@@ -45,11 +45,10 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 {
     private readonly ILoadDriverAdapter _adapter;
 
-    public LoadDeviceWrapper(string driverId, string address, int channel = 1, string endpoint = "")
+    public LoadDeviceWrapper(string driverId, string address, string endpoint = "")
     {
         DriverId = driverId;
         Address = address;
-        Channel = channel;
         Endpoint = endpoint;
         var builder = new DemoLoadHardwareDriverBuilder(endpoint, logger: null);
         _adapter = builder.BuildLoadDriverAdapter();
@@ -58,7 +57,6 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
     public string DeviceType => "LOAD";
     public string DriverId { get; }
     public string Address { get; }
-    public int Channel { get; }
     public string Endpoint { get; }
 
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
@@ -78,7 +76,7 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
     [DriverOperation]
     public object Identify(int? channel = null)
     {
-        var selected = channel ?? Channel;
+        var selected = channel ?? 1;
         return _adapter.Identify(Address, selected);
     }
 }
@@ -150,7 +148,6 @@ In `Ate.Engine/engine-config.json`:
 ```
 
 Notes for config shape:
-- Do not include `channel` in `settings`; rely on the wrapper default (for example `int channel = 1`) and override channel per command only when needed.
 - Use `endpoint` when you already have the final connection string value.
 - Use `endpointFormat` when endpoint must be composed from other settings (for example `{address}`, `{port}`, `{card_number}`).
 

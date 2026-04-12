@@ -97,12 +97,12 @@ internal static class ConfiguredWrapperFactory
 
         if (parameter.Name != null && parameter.Name.Equals("endpoint", StringComparison.OrdinalIgnoreCase))
         {
-            return BuildFormattedSetting(config.Settings, "endpoint", "endpointFormat", "address", "channel");
+            return BuildFormattedSetting(config.Settings, "endpoint", "endpointFormat", "address");
         }
 
         if (parameter.Name != null && parameter.Name.Equals("target", StringComparison.OrdinalIgnoreCase))
         {
-            return BuildFormattedSetting(config.Settings, "target", "targetFormat", "address", "channel");
+            return BuildFormattedSetting(config.Settings, "target", "targetFormat", "address");
         }
 
         var service = services.GetService(parameter.ParameterType);
@@ -161,8 +161,7 @@ internal static class ConfiguredWrapperFactory
         IReadOnlyDictionary<string, string> settings,
         string valueKey,
         string formatKey,
-        string addressKey,
-        string channelKey)
+        string addressKey)
     {
         if (settings.TryGetValue(valueKey, out var explicitValue) && !string.IsNullOrWhiteSpace(explicitValue))
         {
@@ -170,7 +169,6 @@ internal static class ConfiguredWrapperFactory
         }
 
         var address = settings.TryGetValue(addressKey, out var addr) ? addr : string.Empty;
-        var channel = settings.TryGetValue(channelKey, out var ch) ? ch : "1";
 
         if (settings.TryGetValue(formatKey, out var format) && !string.IsNullOrWhiteSpace(format))
         {
@@ -180,7 +178,7 @@ internal static class ConfiguredWrapperFactory
                 output = output.Replace("{" + kvp.Key + "}", kvp.Value);
             }
 
-            output = output.Replace("{address}", address).Replace("{channel}", channel);
+            output = output.Replace("{address}", address);
             return output;
         }
 
