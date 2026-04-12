@@ -150,8 +150,9 @@ In `Ate.Engine/engine-config.json`:
 ```
 
 Notes for config shape:
-- You can omit `channel` from `settings` when your wrapper constructor uses a default value (for example `int channel = 1`).
-- You can supply `endpoint` directly or use `endpointFormat` to compose it from other settings.
+- Do not include `channel` in `settings`; rely on the wrapper default (for example `int channel = 1`) and override channel per command only when needed.
+- Use `endpoint` when you already have the final connection string value.
+- Use `endpointFormat` when endpoint must be composed from other settings (for example `{address}`, `{port}`, `{card_number}`).
 
 ### Constructor parameter binding order
 
