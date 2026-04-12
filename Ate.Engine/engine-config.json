@@ -9,6 +9,14 @@
       }
     },
     {
+      "deviceName": "NiDaqMx2",
+      "deviceType": "NiDaqMx",
+      "settings": {
+        "card_number": "6363",
+        "endpointFormat": "Dev6363"
+      }
+    },
+    {
       "deviceName": "PSU",
       "deviceType": "PSU",
       "settings": {
@@ -23,7 +31,7 @@
       "settings": {
         "address": "192.168.0.21",
         "port": "5025",
-        "endpointFormat": "tcp-{address}:{port}"
+        "endpointFormat": "tcp-192.168.0.21:5025"
       }
     }
   ]
