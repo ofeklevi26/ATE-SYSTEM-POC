@@ -11,9 +11,10 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
     private readonly INiDaqMxDriverAdapter _adapter;
 
-    public NiDaqMxDeviceWrapper(string driverId, string endpoint = "")
+    public NiDaqMxDeviceWrapper(string driverId, string card_number, string endpoint = "")
     {
         DriverId = driverId;
+        CardNumber = card_number;
         Endpoint = endpoint;
 
         var builder = new NiDaqMxHardwareDriverBuilder(endpoint);
@@ -23,6 +24,8 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
     public string DeviceType => "NiDaqMx";
 
     public string DriverId { get; }
+
+    public string CardNumber { get; }
 
     public string Endpoint { get; }
 
@@ -48,6 +51,7 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
         var status = _adapter.SetContiniousFrequency(selectedChannel, frequency, dutyCycle, isIdleStateHugh);
         return new
         {
+            CardNumber,
             Channel = selectedChannel,
             Frequency = frequency,
             DutyCycle = dutyCycle,
@@ -60,6 +64,6 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
     public object Identify(int? channel = null)
     {
         var selectedChannel = channel ?? 1;
-        return _adapter.Identify(selectedChannel);
+        return $"{CardNumber}:{_adapter.Identify(selectedChannel)}";
     }
 }
