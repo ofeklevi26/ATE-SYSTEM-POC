@@ -4,8 +4,8 @@
       "deviceName": "NiDaqMx",
       "deviceType": "NiDaqMx",
       "settings": {
-        "address": "NI_9444",
-        "endpoint": "Dev9220"
+        "card_number": "9220",
+        "endpointFormat": "Dev{card_number}"
       }
     },
     {

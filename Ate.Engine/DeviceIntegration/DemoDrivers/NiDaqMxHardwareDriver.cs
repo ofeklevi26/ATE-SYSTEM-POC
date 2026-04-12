@@ -58,16 +58,16 @@ public sealed class NiDaqMxHardwareDriverAdapter : INiDaqMxDriverAdapter
         _connected = false;
     }
 
-    public string Identify(string address, int channel)
+    public string Identify(string cardNumber, int channel)
     {
         var target = RequireConnection();
-        _ = address;
+        _ = cardNumber;
         return $"NI-DAQmx PWM@{target}:CH{channel}";
     }
 
-    public string SetContiniousFrequency(string address, int channel, decimal frequency, decimal dutyCycle, bool isIdleStateHugh)
+    public string SetContiniousFrequency(string cardNumber, int channel, decimal frequency, decimal dutyCycle, bool isIdleStateHugh)
     {
-        _ = address;
+        _ = cardNumber;
         var target = RequireConnection();
 
         if (frequency <= 0)
