@@ -41,9 +41,7 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 Required per family:
 
 1. Wrapper implementing `IDeviceDriver` with `[DriverOperation]` methods.
-2. Module implementing `IDriverModule` that registers:
-   - required hardware services,
-   - one `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
+2. Module implementing `IDriverModule` that registers at least one `ConfiguredWrapperDescriptor(deviceType, wrapperType)` and any optional DI services required by wrapper constructor parameters.
 3. One or more matching entries in `engine-config.json` with `deviceName`, `deviceType`, and `settings`.
 
 No per-device provider class is required.

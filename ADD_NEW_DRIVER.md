@@ -149,6 +149,10 @@ In `Ate.Engine/engine-config.json`:
 }
 ```
 
+Notes for config shape:
+- You can omit `channel` from `settings` when your wrapper constructor uses a default value (for example `int channel = 1`).
+- You can supply `endpoint` directly or use `endpointFormat` to compose it from other settings.
+
 ### Constructor parameter binding order
 
 `ConfiguredWrapperFactory` resolves each constructor argument using:
