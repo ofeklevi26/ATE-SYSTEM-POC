@@ -6,7 +6,7 @@
       "settings": {
         "address": "NI_9444",
         "channel": "1",
-        "endpoint": "NI_9444_slot1"
+        "endpoint": "Dev9220"
       }
     },
     {
