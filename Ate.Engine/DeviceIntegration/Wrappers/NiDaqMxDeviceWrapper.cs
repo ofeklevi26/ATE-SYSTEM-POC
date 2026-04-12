@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Ate.Engine.DemoDrivers;
 using Ate.Engine.Drivers;
 using Ate.Engine.Hardware;
 
@@ -10,13 +11,14 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
     private readonly INiDaqMxDriverAdapter _adapter;
 
-    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint, INiDaqMxDriverBuilder builder)
+    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        builder.SetEndpoint(endpoint);
+
+        var builder = new NiDaqMxHardwareDriverBuilder(endpoint);
         _adapter = builder.BuildDaqMxDriverAdapter();
     }
 

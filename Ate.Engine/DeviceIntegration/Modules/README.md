@@ -8,17 +8,15 @@ Implement `IDriverModule`:
 
 - `Name` is informational.
 - `Register(IServiceCollection services)` must register:
-  1. required builder dependencies for the wrapper constructor,
+  1. optional wrapper dependencies needed by constructor arguments,
   2. one `ConfiguredWrapperDescriptor(deviceType, wrapperType)`.
 
 ## Built-in module examples
 
 - `NiDaqMxDriverModule`
-  - registers `INiDaqMxDriverBuilder -> NiDaqMxHardwareDriverBuilder`
   - registers descriptor `("NiDaqMx", typeof(NiDaqMxDeviceWrapper))`
 
 - `PsuDriverModule`
-  - registers `IPsuDriverBuilder -> DemoPsuHardwareDriverBuilder`
   - registers descriptor `("PSU", typeof(PsuDeviceWrapper))`
 
 ## How config resolves wrappers

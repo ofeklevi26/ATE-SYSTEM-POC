@@ -8,10 +8,10 @@ namespace Ate.Engine.DemoDrivers;
 
 public sealed class NiDaqMxHardwareDriverBuilder : INiDaqMxDriverBuilder
 {
-    private string? _endpoint;
-    private ILogger? _logger;
+    private readonly string _endpoint;
+    private readonly ILogger? _logger;
 
-    public void SetEndpoint(string endpoint, ILogger? logger = null)
+    public NiDaqMxHardwareDriverBuilder(string endpoint, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -24,11 +24,6 @@ public sealed class NiDaqMxHardwareDriverBuilder : INiDaqMxDriverBuilder
 
     public INiDaqMxDriverAdapter BuildDaqMxDriverAdapter()
     {
-        if (string.IsNullOrWhiteSpace(_endpoint))
-        {
-            throw new InvalidOperationException("NI-DAQmx endpoint was not set on the builder.");
-        }
-
         return new NiDaqMxHardwareDriverAdapter(_endpoint, _logger);
     }
 }

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Ate.Engine.DemoDrivers;
 using Ate.Engine.Drivers;
 using Ate.Engine.Hardware;
 
@@ -11,13 +12,14 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
 {
     private readonly IPsuDriverAdapter _adapter;
 
-    public PsuDeviceWrapper(string driverId, string address, int channel, string endpoint, IPsuDriverBuilder builder)
+    public PsuDeviceWrapper(string driverId, string address, int channel, string endpoint)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        builder.SetEndpoint(endpoint);
+
+        var builder = new DemoPsuHardwareDriverBuilder(endpoint);
         _adapter = builder.BuildPsuDriverAdapter();
     }
 

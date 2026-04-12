@@ -1,11 +1,7 @@
-using Ate.Engine.Infrastructure;
-
 namespace Ate.Engine.Hardware;
 
 public interface IPsuDriverBuilder
 {
-    void SetEndpoint(string endpoint, ILogger? logger = null);
-
     IPsuDriverAdapter BuildPsuDriverAdapter();
 }
 

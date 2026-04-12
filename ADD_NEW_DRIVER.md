@@ -23,7 +23,6 @@ Example:
 ```csharp
 public interface ILoadDriverBuilder
 {
-    void SetEndpoint(string endpoint, ILogger? logger = null);
     ILoadDriverAdapter BuildLoadDriverAdapter();
 }
 
@@ -46,13 +45,13 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 {
     private readonly ILoadDriverAdapter _adapter;
 
-    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadDriverBuilder builder)
+    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint)
     {
         DriverId = driverId;
         Address = address;
         Channel = channel;
         Endpoint = endpoint;
-        builder.SetEndpoint(endpoint);
+        var builder = new DemoLoadHardwareDriverBuilder(endpoint, logger: null);
         _adapter = builder.BuildLoadDriverAdapter();
     }
 
@@ -83,6 +82,15 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
         return _adapter.Identify(Address, selected);
     }
 }
+```
+
+Usage pattern:
+
+```csharp
+var logger = default(ILogger);
+var y = new DemoLoadHardwareDriverBuilder(endpoint, logger);
+var driver = y.BuildLoadDriverAdapter();
+driver.Connect();
 ```
 
 Notes:
@@ -118,7 +126,6 @@ public sealed class LoadDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<ILoadDriverBuilder, DemoLoadHardwareDriverBuilder>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("LOAD", typeof(LoadDeviceWrapper)));
     }
 }
