@@ -4,7 +4,7 @@ This is the active end-to-end process for extending the engine with config-drive
 
 ## Checklist
 
-1. Add hardware abstraction (optional but recommended).
+1. Add hardware builder/adapter abstraction (optional but recommended).
 2. Add wrapper implementing `IDeviceDriver`.
 3. Add `[DriverOperation]` methods to wrapper.
 4. Add module implementing `IDriverModule`.
@@ -14,18 +14,23 @@ This is the active end-to-end process for extending the engine with config-drive
 
 ---
 
-## 1) Add hardware interface/implementation (optional)
+## 1) Add hardware builder/adapter interfaces (optional)
 
-Create an interface under `Ate.Engine/DeviceIntegration/Hardware` and a concrete implementation under `DemoDrivers` (or real SDK adapter in plugin code).
+Create interfaces under `Ate.Engine/DeviceIntegration/Hardware` and a concrete implementation under `DemoDrivers` (or a real SDK adapter in plugin code).
 
 Example:
 
 ```csharp
-public interface ILoadHardwareDriver
+public interface ILoadDriverBuilder
 {
-    string Identify(string address, int channel);
-    void Connect(string endpoint);
+    ILoadDriverAdapter BuildLoadDriverAdapter();
+}
+
+public interface ILoadDriverAdapter
+{
+    void Connect();
     void Disconnect();
+    string Identify(string address, int channel);
 }
 ```
 
@@ -38,44 +43,52 @@ Create `Ate.Engine/DeviceIntegration/Wrappers/LoadDeviceWrapper.cs`:
 ```csharp
 public sealed class LoadDeviceWrapper : IDeviceDriver
 {
-    private readonly ILoadHardwareDriver _hardware;
+    private readonly ILoadDriverAdapter _adapter;
 
-    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint, ILoadHardwareDriver hardware)
+    public LoadDeviceWrapper(string driverId, string address, string endpoint = "")
     {
         DriverId = driverId;
         Address = address;
-        Channel = channel;
         Endpoint = endpoint;
-        _hardware = hardware;
+        var builder = new DemoLoadHardwareDriverBuilder(endpoint, logger: null);
+        _adapter = builder.BuildLoadDriverAdapter();
     }
 
     public string DeviceType => "LOAD";
     public string DriverId { get; }
     public string Address { get; }
-    public int Channel { get; }
     public string Endpoint { get; }
 
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        _hardware.Connect(Endpoint);
+        _adapter.Connect();
         try
         {
             return WrapperOperationRuntime.InvokeAsync(this, operation, parameters, token);
         }
         finally
         {
-            _hardware.Disconnect();
+            _adapter.Disconnect();
         }
     }
 
     [DriverOperation]
     public object Identify(int? channel = null)
     {
-        var selected = channel ?? Channel;
-        return _hardware.Identify(Address, selected);
+        var selected = channel ?? 1;
+        return _adapter.Identify(Address, selected);
     }
 }
+```
+
+Usage pattern:
+
+```csharp
+var logger = default(ILogger);
+var y = new DemoLoadHardwareDriverBuilder(endpoint, logger);
+var driver = y.BuildLoadDriverAdapter();
+driver.Connect();
 ```
 
 Notes:
@@ -111,7 +124,6 @@ public sealed class LoadDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<ILoadHardwareDriver, DemoLoadHardwareDriver>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("LOAD", typeof(LoadDeviceWrapper)));
     }
 }
@@ -130,11 +142,14 @@ In `Ate.Engine/engine-config.json`:
   "settings": {
     "address": "192.168.0.50",
     "port": "5025",
-    "channel": "1",
-    "endpointFormat": "tcp://{address}:{port}/ch/{channel}"
+    "endpointFormat": "tcp://{address}:{port}"
   }
 }
 ```
+
+Notes for config shape:
+- Use `endpoint` when you already have the final connection string value.
+- Use `endpointFormat` when endpoint must be composed from other settings (for example `{address}`, `{port}`, `{card_number}`).
 
 ### Constructor parameter binding order
 
@@ -142,7 +157,7 @@ In `Ate.Engine/engine-config.json`:
 
 1. `driverId` special case => config `deviceType`
 2. exact `settings` key by parameter name (case-insensitive)
-3. `endpoint` / `target` formatted value (`endpointFormat` / `targetFormat`) or direct key value
+3. `endpoint` formatted value (`endpointFormat`) or direct key value
 4. DI resolution by parameter type
 5. default constructor value
 

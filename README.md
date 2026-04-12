@@ -59,8 +59,8 @@ ATE-SYSTEM-POC/
 │   │       └── ParameterTypeMismatchException.cs
 │   ├── DeviceIntegration/
 │   │   ├── Hardware/
-│   │   │   ├── INiDaqMxHardwareDriver.cs
-│   │   │   └── IPsuHardwareDriver.cs
+│   │   │   ├── INiDaqMxDriverContracts.cs
+│   │   │   └── IPsuDriverContracts.cs
 │   │   ├── DemoDrivers/
 │   │   │   ├── NiDaqMxHardwareDriver.cs
 │   │   │   └── DemoPsuHardwareDriver.cs
@@ -144,7 +144,7 @@ Each entry provides:
 
 1. parameter named `driverId` => config `deviceType`
 2. matching `settings[parameterName]`
-3. `endpoint` / `target` value (direct key or formatted template)
+3. `endpoint` value (direct key or formatted template via `endpointFormat`)
 4. DI service by parameter type
 5. parameter default value
 

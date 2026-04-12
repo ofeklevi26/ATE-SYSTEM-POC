@@ -1,8 +1,13 @@
 namespace Ate.Engine.Hardware;
 
-public interface IPsuHardwareDriver
+public interface IPsuDriverBuilder
 {
-    void Connect(string connectionTarget);
+    IPsuDriverAdapter BuildPsuDriverAdapter();
+}
+
+public interface IPsuDriverAdapter
+{
+    void Connect();
 
     void Disconnect();
 

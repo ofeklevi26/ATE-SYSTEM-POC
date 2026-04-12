@@ -1,29 +1,66 @@
+using System;
 using Ate.Engine.Hardware;
+using Ate.Engine.Infrastructure;
 
 namespace Ate.Engine.DemoDrivers;
 
-public sealed class DemoPsuHardwareDriver : IPsuHardwareDriver
+public sealed class DemoPsuHardwareDriverBuilder : IPsuDriverBuilder
 {
+    private readonly string _endpoint;
+    private readonly ILogger? _logger;
+
+    public DemoPsuHardwareDriverBuilder(string endpoint, ILogger? logger = null)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            throw new InvalidOperationException("PSU endpoint is required.");
+        }
+
+        _endpoint = endpoint.Trim();
+        _logger = logger;
+    }
+
+    public IPsuDriverAdapter BuildPsuDriverAdapter()
+    {
+        return new DemoPsuHardwareDriverAdapter(_endpoint, _logger);
+    }
+}
+
+public sealed class DemoPsuHardwareDriverAdapter : IPsuDriverAdapter
+{
+    private readonly string _deviceName;
+    private readonly ILogger? _logger;
     private decimal _currentVoltage;
     private decimal _currentLimit;
     private bool _outputEnabled;
+    private bool _connected;
 
-    public void Connect(string connectionTarget)
+    public DemoPsuHardwareDriverAdapter(string deviceName, ILogger? logger = null)
     {
-        _ = connectionTarget;
+        _deviceName = deviceName;
+        _logger = logger;
+    }
+
+    public void Connect()
+    {
+        _connected = true;
+        _logger?.Info($"PSU adapter connected to {_deviceName}.");
     }
 
     public void Disconnect()
     {
+        _connected = false;
     }
 
     public string Identify(string address, int channel)
     {
+        RequireConnection();
         return $"PSU-DEMO@{address}:CH{channel}";
     }
 
     public void SetVoltage(int channel, decimal voltage, decimal currentLimit)
     {
+        RequireConnection();
         _ = channel;
         _currentVoltage = voltage;
         _currentLimit = currentLimit;
@@ -31,13 +68,23 @@ public sealed class DemoPsuHardwareDriver : IPsuHardwareDriver
 
     public void SetCurrentLimit(int channel, decimal currentLimit)
     {
+        RequireConnection();
         _ = channel;
         _currentLimit = currentLimit;
     }
 
     public void SetOutput(int channel, bool enabled)
     {
+        RequireConnection();
         _ = channel;
         _outputEnabled = enabled;
+    }
+
+    private void RequireConnection()
+    {
+        if (!_connected)
+        {
+            throw new InvalidOperationException("No PSU adapter connection is active. Build an adapter and call Connect first.");
+        }
     }
 }

@@ -4,9 +4,16 @@
       "deviceName": "NiDaqMx",
       "deviceType": "NiDaqMx",
       "settings": {
-        "address": "NI_9444",
-        "channel": "1",
-        "endpoint": "NI_9444_slot1"
+        "card_number": "9220",
+        "endpointFormat": "Dev{card_number}"
+      }
+    },
+    {
+      "deviceName": "NiDaqMx2",
+      "deviceType": "NiDaqMx",
+      "settings": {
+        "card_number": "6363",
+        "endpointFormat": "Dev6363"
       }
     },
     {
@@ -15,7 +22,6 @@
       "settings": {
         "address": "192.168.0.20",
         "port": "5025",
-        "channel": "1",
         "endpointFormat": "tcp-{address}:{port}"
       }
     },
@@ -25,8 +31,7 @@
       "settings": {
         "address": "192.168.0.21",
         "port": "5025",
-        "channel": "1",
-        "endpointFormat": "tcp-{address}:{port}"
+        "endpointFormat": "tcp-192.168.0.21:5025"
       }
     }
   ]
