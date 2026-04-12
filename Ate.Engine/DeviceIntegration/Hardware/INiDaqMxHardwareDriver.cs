@@ -11,7 +11,7 @@ public interface INiDaqMxDriverAdapter
 
     void Disconnect();
 
-    string Identify(string cardNumber, int channel);
+    string Identify(int channel);
 
-    string SetContiniousFrequency(string cardNumber, int channel, decimal frequency, decimal dutyCycle, bool isIdleStateHugh);
+    string SetContiniousFrequency(int channel, decimal frequency, decimal dutyCycle, bool isIdleStateHugh);
 }

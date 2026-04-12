@@ -39,7 +39,7 @@ For each entry in `engine-config.json`:
 ## Conventions for reliable behavior
 
 - Prefer a single public wrapper constructor.
-- Keep constructor parameter names stable and descriptive (`driverId`, `address`, `card_number`, `channel`, `endpoint`).
+- Keep constructor parameter names stable and descriptive (`driverId`, `address`, `channel`, `endpoint`).
 - Keep wrapper methods public and annotate invokable operations with `[DriverOperation]`.
 - Avoid duplicate operation names (including attribute aliases) because duplicates are rejected.
 - Keep wrapper method signatures in sync with `KnownCapabilitiesCatalog` for known families.
