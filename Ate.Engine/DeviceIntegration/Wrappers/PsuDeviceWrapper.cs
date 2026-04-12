@@ -12,10 +12,11 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
 {
     private readonly IPsuDriverAdapter _adapter;
 
-    public PsuDeviceWrapper(string driverId, string address, string endpoint = "")
+    public PsuDeviceWrapper(string driverId, string address, string port = "", string endpoint = "")
     {
         DriverId = driverId;
         Address = address;
+        Port = port;
         Endpoint = endpoint;
 
         var builder = new DemoPsuHardwareDriverBuilder(endpoint);
@@ -27,6 +28,8 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     public string DriverId { get; }
 
     public string Address { get; }
+
+    public string Port { get; }
 
     public string Endpoint { get; }
 
@@ -49,7 +52,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     public object Identify(int? channel = null)
     {
         var selectedChannel = channel ?? 1;
-        return _adapter.Identify(Address, selectedChannel);
+        return _adapter.Identify(AddressWithPort(), selectedChannel);
     }
 
     [DriverOperation]
@@ -57,7 +60,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     {
         var selectedChannel = channel ?? 1;
         _adapter.SetVoltage(selectedChannel, voltage, currentLimit);
-        return $"PSU configured: Voltage={voltage.ToString("0.###", CultureInfo.InvariantCulture)}V, CurrentLimit={currentLimit.ToString("0.###", CultureInfo.InvariantCulture)}A on CH{selectedChannel}";
+        return $"PSU configured [{AddressWithPort()}]: Voltage={voltage.ToString("0.###", CultureInfo.InvariantCulture)}V, CurrentLimit={currentLimit.ToString("0.###", CultureInfo.InvariantCulture)}A on CH{selectedChannel}";
     }
 
     [DriverOperation]
@@ -65,7 +68,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     {
         var selectedChannel = channel ?? 1;
         _adapter.SetCurrentLimit(selectedChannel, currentLimit);
-        return $"PSU current limit set to {currentLimit.ToString("0.###", CultureInfo.InvariantCulture)} A on CH{selectedChannel}";
+        return $"PSU current limit [{AddressWithPort()}] set to {currentLimit.ToString("0.###", CultureInfo.InvariantCulture)} A on CH{selectedChannel}";
     }
 
     [DriverOperation]
@@ -73,7 +76,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     {
         var selectedChannel = channel ?? 1;
         _adapter.SetOutput(selectedChannel, enabled);
-        return enabled ? $"PSU output enabled on CH{selectedChannel}" : $"PSU output disabled on CH{selectedChannel}";
+        return enabled ? $"PSU output enabled [{AddressWithPort()}] on CH{selectedChannel}" : $"PSU output disabled [{AddressWithPort()}] on CH{selectedChannel}";
     }
 
     [DriverOperation]
@@ -81,6 +84,11 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
     {
         var selectedChannel = channel ?? 1;
         _adapter.SetOutput(selectedChannel, false);
-        return $"PSU output disabled on CH{selectedChannel}";
+        return $"PSU output disabled [{AddressWithPort()}] on CH{selectedChannel}";
+    }
+
+    private string AddressWithPort()
+    {
+        return string.IsNullOrWhiteSpace(Port) ? Address : $"{Address}:{Port}";
     }
 }
