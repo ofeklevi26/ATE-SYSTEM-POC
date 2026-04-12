@@ -11,7 +11,7 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
     private readonly INiDaqMxDriverAdapter _adapter;
 
-    public NiDaqMxDeviceWrapper(string driverId, string address, int channel, string endpoint)
+    public NiDaqMxDeviceWrapper(string driverId, string address, int channel = 1, string endpoint = "")
     {
         DriverId = driverId;
         Address = address;

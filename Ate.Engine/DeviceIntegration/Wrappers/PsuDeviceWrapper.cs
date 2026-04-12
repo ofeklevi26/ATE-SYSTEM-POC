@@ -12,7 +12,7 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
 {
     private readonly IPsuDriverAdapter _adapter;
 
-    public PsuDeviceWrapper(string driverId, string address, int channel, string endpoint)
+    public PsuDeviceWrapper(string driverId, string address, int channel = 1, string endpoint = "")
     {
         DriverId = driverId;
         Address = address;

@@ -45,7 +45,7 @@ public sealed class LoadDeviceWrapper : IDeviceDriver
 {
     private readonly ILoadDriverAdapter _adapter;
 
-    public LoadDeviceWrapper(string driverId, string address, int channel, string endpoint)
+    public LoadDeviceWrapper(string driverId, string address, int channel = 1, string endpoint = "")
     {
         DriverId = driverId;
         Address = address;
@@ -144,8 +144,7 @@ In `Ate.Engine/engine-config.json`:
   "settings": {
     "address": "192.168.0.50",
     "port": "5025",
-    "channel": "1",
-    "endpointFormat": "tcp://{address}:{port}/ch/{channel}"
+    "endpointFormat": "tcp://{address}:{port}"
   }
 }
 ```
