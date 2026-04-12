@@ -1,6 +1,4 @@
-using Ate.Engine.DemoDrivers;
 using Ate.Engine.Drivers;
-using Ate.Engine.Hardware;
 using Ate.Engine.Wrappers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +10,6 @@ public sealed class NiDaqMxDriverModule : IDriverModule
 
     public void Register(IServiceCollection services)
     {
-        services.AddTransient<INiDaqMxHardwareDriver, NiDaqMxHardwareDriver>();
         services.AddSingleton(new ConfiguredWrapperDescriptor("NiDaqMx", typeof(NiDaqMxDeviceWrapper)));
     }
 }

@@ -1,8 +1,13 @@
 namespace Ate.Engine.Hardware;
 
-public interface INiDaqMxHardwareDriver
+public interface INiDaqMxDriverBuilder
 {
-    void Connect(string connectionTarget);
+    INiDaqMxDriverAdapter BuildDaqMxDriverAdapter();
+}
+
+public interface INiDaqMxDriverAdapter
+{
+    void Connect();
 
     void Disconnect();
 
