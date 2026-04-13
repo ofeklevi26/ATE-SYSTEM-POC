@@ -22,7 +22,7 @@
       "settings": {
         "address": "192.168.0.20",
         "port": "5025",
-        "endpointFormat": "tcp-{address}:{port}"
+        "endpointFormat": "TCP::{address}:{port}"
       }
     },
     {
@@ -30,8 +30,7 @@
       "deviceType": "PSU",
       "settings": {
         "address": "192.168.0.21",
-        "port": "5025",
-        "endpointFormat": "tcp-192.168.0.21:5025"
+        "endpointFormat": "tcp-192.168.0.21"
       }
     }
   ]
