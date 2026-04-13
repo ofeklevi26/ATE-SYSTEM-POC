@@ -12,12 +12,12 @@ This walkthrough is a code-level map of the repository as it exists today. It ex
 ## 1) End-to-end runtime flow
 
 1. `Ate.Engine/Host/Program.cs` starts Serilog and calls `EngineRuntime.Start()`.
-2. `EngineRuntime` discovers plugin DLLs, discovers modules, builds DI, loads `engine-config.json`, registers configured wrappers, loads direct plugin drivers, starts the command worker, and starts Web API self-host.
+2. `EngineRuntime` discovers plugin DLLs, discovers modules, builds DI, loads `engine-config.json`, registers configured wrappers, starts the command worker, and starts Web API self-host.
 3. `Ate.Ui` (or any external client) calls `GET /api/capabilities` to discover devices/operations.
 4. Client sends `POST /api/command` with `deviceType`, `deviceName`, `operation`, `parameters`.
 5. `CommandController` validates request + invocation and enqueues `OperateDeviceCommand` into `CommandInvoker`.
 6. `CommandInvoker` dequeues and executes commands; `OperateDeviceCommand` resolves the target driver and calls `ExecuteAsync`.
-7. Wrapper (`NiDaqMxDeviceWrapper` / `PsuDeviceWrapper` / plugin driver) executes operation through `WrapperOperationRuntime`.
+7. Wrapper (`NiDaqMxDeviceWrapper` / `PsuDeviceWrapper`) executes operation through `WrapperOperationRuntime`.
 8. Client polls `GET /api/status` for queue state/errors and can call engine control endpoints (pause/resume/clear/abort).
 
 ---
@@ -33,7 +33,6 @@ This walkthrough is a code-level map of the repository as it exists today. It ex
 - `PROJECT_STATE_REVIEW.md`: concise current-state snapshot.
 - `STANDALONE_ATECLIENT_GUIDE.md`: headless client usage.
 - `ADD_NEW_DRIVER.md`: configured-wrapper onboarding.
-- `ADD_DLL_DRIVER.md`: direct plugin onboarding.
 
 ---
 
@@ -129,7 +128,7 @@ Methods:
   - captures base address/logger/invoker/web host handle.
 - `Start(ILogger? bootLoggerOverride = null)`:
   - boot orchestration method.
-  - loads plugin assemblies, builds services, loads config, registers wrappers, loads plugin drivers, starts invoker and OWIN host.
+  - loads plugin assemblies, builds services, loads config, registers wrappers, starts invoker and OWIN host.
   - on fatal error: logs + optionally flushes logger + rethrows.
 - `Dispose()`:
   - disposes web host and stops invoker with logging safeguards.
@@ -453,22 +452,6 @@ Nested class:
   - stores `DeviceName`, `Factory`, `Definition`.
   - constructor initializes fields.
 
-### `Ate.Engine/Core/Drivers/DriverLoader.cs`
-
-#### `DriverLoader`
-Methods:
-- constructor: injects registry + logger.
-- `LoadFromAssemblies(assemblies)`:
-  - iterates distinct assemblies.
-- `LoadFromAssembly(assembly)` (private):
-  - discovers eligible driver types and registers each.
-- `RegisterType(type)` (private):
-  - creates sample instance,
-  - registers under `deviceType::default`,
-  - logs success/failure.
-- `IsDriverType(t)` (private):
-  - validates concrete `IDeviceDriver` with parameterless ctor.
-
 ### `Ate.Engine/Core/Drivers/ParameterTypeMismatchException.cs`
 
 #### `ParameterTypeMismatchException`
@@ -711,14 +694,6 @@ Methods/properties:
 - Add module + `ConfiguredWrapperDescriptor`.
 - Add config entries (`deviceType`, `deviceName`, `settings`).
 - Optional: add explicit family definition to `KnownCapabilitiesCatalog`.
-
-### B) Direct plugin extension path
-- Build DLL with concrete `IDeviceDriver` and parameterless ctor.
-- Copy to `<engine base dir>/drivers`.
-- Driver currently registers as `deviceType::default`.
-- By default this path does not contribute metadata to `/api/capabilities`.
-
----
 
 ## 13) Quick call map (request to execution)
 

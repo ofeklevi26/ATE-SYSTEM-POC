@@ -19,9 +19,8 @@ Engine project for command queuing, wrapper execution, capability discovery, and
 4. Build DI container (logger, registry, invoker, registrar, controllers, module registrations).
 5. Load `engine-config.json`.
 6. Register configured wrappers from config.
-7. Load direct plugin `IDeviceDriver` implementations from plugin assemblies.
-8. Start command invoker worker.
-9. Start OWIN host and Web API routes.
+7. Start command invoker worker.
+8. Start OWIN host and Web API routes.
 
 ## API controllers
 
@@ -69,7 +68,7 @@ If multiple constructors are resolvable with equal highest arity, registration f
 
 ## Driver selection responsibility
 
-- Startup: engine registers configured targets from config and direct plugin defaults.
+- Startup: engine registers configured targets from config.
 - Command time: client chooses target intent using `deviceType` + `deviceName`.
 - Runtime resolution: exact key match only (`deviceType::deviceName`).
 
@@ -89,5 +88,4 @@ If multiple constructors are resolvable with equal highest arity, registration f
 
 - Root overview: `../README.md`
 - Configured wrapper onboarding: `../ADD_NEW_DRIVER.md`
-- Direct plugin DLL onboarding: `../ADD_DLL_DRIVER.md`
 - Module conventions: `DeviceIntegration/Modules/README.md`
