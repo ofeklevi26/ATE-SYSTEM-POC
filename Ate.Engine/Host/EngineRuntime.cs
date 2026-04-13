@@ -45,7 +45,6 @@ public sealed class EngineRuntime : IDisposable
             var serviceProvider = services.BuildServiceProvider();
 
             var logger = serviceProvider.GetRequiredService<ILogger>();
-            var registry = serviceProvider.GetRequiredService<DriverRegistry>();
             var invoker = serviceProvider.GetRequiredService<CommandInvoker>();
             var configuredWrapperRegistrar = serviceProvider.GetRequiredService<ConfiguredWrapperRegistrar>();
 
@@ -53,9 +52,6 @@ public sealed class EngineRuntime : IDisposable
             var config = EngineConfiguration.Load(configPath);
 
             configuredWrapperRegistrar.Register(config);
-
-            var loader = new DriverLoader(registry, logger);
-            loader.LoadFromAssemblies(pluginAssemblies);
 
             invoker.Start();
 

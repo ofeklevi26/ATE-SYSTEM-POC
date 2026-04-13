@@ -28,9 +28,8 @@ This review reflects the repository as currently implemented.
 4. builds DI container,
 5. loads `engine-config.json`,
 6. registers configured wrappers via `ConfiguredWrapperRegistrar`,
-7. loads direct plugin drivers via `DriverLoader`,
-8. starts queue worker,
-9. starts OWIN host at `http://localhost:9000/`.
+7. starts queue worker,
+8. starts OWIN host at `http://localhost:9000/`.
 
 ## 3) Driver integration model (active)
 
@@ -43,12 +42,6 @@ Required artifacts:
 - config entries in `engine-config.json` with required `deviceName` and `deviceType`.
 
 Configured wrappers are registered as exact keys: `deviceType::deviceName`.
-
-### Direct plugin drivers (secondary path)
-
-`DriverLoader` discovers `IDeviceDriver` types in plugin DLLs and registers each with `deviceName = "default"`.
-
-Current limitation: this path does not attach `DeviceCommandDefinition` metadata, so such drivers are not represented in `/api/capabilities` by default.
 
 ## 4) Constructor binding behavior
 
@@ -116,12 +109,10 @@ Type coercion is performed server-side by normalizer + runtime conversion.
 - Queue is in-memory only (no persistence).
 - Wrapper operation invocation expects synchronous operation methods (invoked via reflection and wrapped in `Task.FromResult`).
 - Missing operation parameters fail validation.
-- Direct plugin path lacks automatic capability metadata publication.
 
 ## 10) Recommended next steps
 
 1. Add automated tests for constructor binding edge cases and ambiguity detection.
 2. Add integration tests for `/api/command` validation behavior.
 3. Add tests for `KnownCapabilitiesCatalog` drift checks.
-4. Decide whether direct plugin path should publish capabilities (and implement if required).
-5. Add structured logging context (deviceType/deviceName/operation/commandId).
+4. Add structured logging context (deviceType/deviceName/operation/commandId).

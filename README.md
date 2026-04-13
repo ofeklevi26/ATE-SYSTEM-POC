@@ -16,7 +16,6 @@ ATE-SYSTEM-POC/
 ├── PROJECT_STATE_REVIEW.md
 ├── STANDALONE_ATECLIENT_GUIDE.md
 ├── ADD_NEW_DRIVER.md
-├── ADD_DLL_DRIVER.md
 │
 ├── Ate.Contracts/
 │   ├── Ate.Contracts.csproj
@@ -50,7 +49,6 @@ ATE-SYSTEM-POC/
 │   │       ├── IDeviceDriver.cs
 │   │       ├── IDriverModule.cs
 │   │       ├── DriverRegistry.cs
-│   │       ├── DriverLoader.cs
 │   │       ├── DriverOperationAttribute.cs
 │   │       ├── WrapperOperationRuntime.cs
 │   │       ├── ConfiguredWrapperDescriptor.cs
@@ -100,7 +98,7 @@ ATE-SYSTEM-POC/
 5. Engine builds per-device command definitions through `WrapperOperationRuntime`:
    - known families (`NiDaqMx`, `PSU`) are generated from `KnownCapabilitiesCatalog` and validated against reflected wrapper signatures,
    - unknown families use reflection over `[DriverOperation]` methods.
-6. Engine optionally loads direct plugin `IDeviceDriver` implementations via `DriverLoader`.
+6. Engine registers configured wrappers from `engine-config.json`.
 7. Engine starts `CommandInvoker` and HTTP API at `http://localhost:9000/`.
 
 ## HTTP API summary
@@ -174,7 +172,6 @@ dotnet run --project Ate.Ui/Ate.Ui.csproj
 
 - Engine internals: `Ate.Engine/README.md`
 - Driver family onboarding (configured wrappers): `ADD_NEW_DRIVER.md`
-- Direct DLL plugin onboarding: `ADD_DLL_DRIVER.md`
 - Headless client guide: `STANDALONE_ATECLIENT_GUIDE.md`
 - Detailed walkthrough: `FULL_PROJECT_WALKTHROUGH.md`
 - Current-state review: `PROJECT_STATE_REVIEW.md`
