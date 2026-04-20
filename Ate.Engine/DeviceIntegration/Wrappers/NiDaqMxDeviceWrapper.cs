@@ -29,6 +29,16 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 
     public string Endpoint { get; }
 
+    public void Connect()
+    {
+        _adapter.Connect();
+    }
+
+    public void Disconnect()
+    {
+        _adapter.Disconnect();
+    }
+
     public Task<object> ExecuteAsync(string operation, Dictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();

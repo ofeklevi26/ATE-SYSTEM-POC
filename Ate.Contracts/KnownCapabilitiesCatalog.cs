@@ -19,6 +19,12 @@ public static class KnownCapabilitiesCatalog
             return true;
         }
 
+        if (deviceType.Equals("Meditation", StringComparison.OrdinalIgnoreCase))
+        {
+            definition = CreateMeditationDefinition(driverId);
+            return true;
+        }
+
         definition = null!;
         return false;
     }
@@ -193,6 +199,29 @@ public static class KnownCapabilitiesCatalog
                     {
                         BuildChannelParameter()
                     }
+                }
+            }
+        };
+    }
+
+    private static DeviceCommandDefinition CreateMeditationDefinition(string driverId)
+    {
+        return new DeviceCommandDefinition
+        {
+            DeviceType = "Meditation",
+            DriverId = driverId,
+            DriverClassName = "MeditationDeviceWrapper",
+            DriverDisplayName = "Meditation",
+            DriverDescription = "Indirection wrapper that orchestrates LED and buzzer behavior using existing hardware wrappers.",
+            Operations = new List<CommandOperationDefinition>
+            {
+                new CommandOperationDefinition
+                {
+                    Name = "start_buzzer_sequence",
+                    DisplayName = "Start Buzzer Sequence",
+                    Description = "Turns PSU output on, starts buzzer through NI-DAQmx, then turns PSU output off.",
+                    ReturnType = "Object",
+                    Parameters = new List<CommandParameterDefinition>()
                 }
             }
         };

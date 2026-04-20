@@ -32,6 +32,14 @@
         "address": "192.168.0.21",
         "endpointFormat": "tcp-192.168.0.21"
       }
+    },
+    {
+      "deviceName": "Meditation",
+      "deviceType": "Meditation",
+      "settings": {
+        "psuWrapperName": "PSU",
+        "niDaqMxWrapperName": "NiDaqMx"
+      }
     }
   ]
 }
