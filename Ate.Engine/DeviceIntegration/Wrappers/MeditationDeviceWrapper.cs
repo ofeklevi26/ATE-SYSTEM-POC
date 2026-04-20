@@ -52,19 +52,19 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
     [DriverOperation]
     public object start_buzzer_sequence()
     {
-        var psuWrapper = ResolveWrapper<PsuDeviceWrapper>("PSU", _psuWrapperName);
-        var niDaqMxWrapper = ResolveWrapper<NiDaqMxDeviceWrapper>("NiDaqMx", _niDaqMxWrapperName);
+        var psu = ResolvePsuWrapper();
+        var daq = ResolveNiDaqMxWrapper();
 
-        psuWrapper.Connect();
+        psu.Connect();
         try
         {
-            var turnOnResult = psuWrapper.SetOutput(enabled: true, channel: LedChannel);
+            var turnOnResult = psu.SetOutput(enabled: true, channel: LedChannel);
 
-            niDaqMxWrapper.Connect();
+            daq.Connect();
             object buzzerResult;
             try
             {
-                buzzerResult = niDaqMxWrapper.SetContiniousFrequency(
+                buzzerResult = daq.SetContiniousFrequency(
                     frequency: BuzzerFrequency,
                     dutyCycle: BuzzerDutyCycle,
                     isIdleStateHugh: false,
@@ -72,10 +72,10 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
             }
             finally
             {
-                niDaqMxWrapper.Disconnect();
+                daq.Disconnect();
             }
 
-            var turnOffResult = psuWrapper.SetOutput(enabled: false, channel: LedChannel);
+            var turnOffResult = psu.SetOutput(enabled: false, channel: LedChannel);
 
             return new
             {
@@ -92,8 +92,18 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
         }
         finally
         {
-            psuWrapper.Disconnect();
+            psu.Disconnect();
         }
+    }
+
+    private PsuDeviceWrapper ResolvePsuWrapper()
+    {
+        return ResolveWrapper<PsuDeviceWrapper>("PSU", _psuWrapperName);
+    }
+
+    private NiDaqMxDeviceWrapper ResolveNiDaqMxWrapper()
+    {
+        return ResolveWrapper<NiDaqMxDeviceWrapper>("NiDaqMx", _niDaqMxWrapperName);
     }
 
     private TWrapper ResolveWrapper<TWrapper>(string deviceType, string wrapperName)
