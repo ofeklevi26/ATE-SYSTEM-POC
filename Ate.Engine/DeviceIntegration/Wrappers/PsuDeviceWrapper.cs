@@ -8,7 +8,7 @@ using Ate.Engine.Hardware;
 
 namespace Ate.Engine.Wrappers;
 
-public sealed class PsuDeviceWrapper : IDeviceDriver
+public sealed class PsuDeviceWrapper : IDeviceDriver, IPsuControl
 {
     private readonly IPsuDriverAdapter _adapter;
 
@@ -77,6 +77,15 @@ public sealed class PsuDeviceWrapper : IDeviceDriver
         var selectedChannel = channel ?? 1;
         _adapter.SetOutput(selectedChannel, enabled);
         return enabled ? $"PSU output enabled [{AddressWithPort()}] on CH{selectedChannel}" : $"PSU output disabled [{AddressWithPort()}] on CH{selectedChannel}";
+    }
+
+    public Task<object> SetOutputAsync(bool enabled = true, int? channel = null, CancellationToken token = default)
+    {
+        return ExecuteAsync("SetOutput", new Dictionary<string, object>
+        {
+            ["enabled"] = enabled,
+            ["channel"] = channel ?? 1
+        }, token);
     }
 
     [DriverOperation]

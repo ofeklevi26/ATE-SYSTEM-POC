@@ -11,6 +11,8 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
     private readonly DriverRegistry _driverRegistry;
     private readonly string _psuWrapperName;
     private readonly string _niDaqMxWrapperName;
+    private IPsuControl? _psuControl;
+    private INiDaqMxControl? _niDaqMxControl;
 
     public MeditationDeviceWrapper(
         string driverId,
@@ -53,25 +55,24 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
     [DriverOperation]
     public async Task<object> start_buzzer_sequence()
     {
-        var turnOnResult = await InvokePsuAsync("SetOutput", new Dictionary<string, object>
-        {
-            ["enabled"] = true,
-            ["channel"] = LedChannel
-        }).ConfigureAwait(false);
+        var psuControl = ResolvePsuControl();
+        var niDaqMxControl = ResolveNiDaqMxControl();
 
-        var buzzerResult = await InvokeNiDaqAsync("SetContiniousFrequency", new Dictionary<string, object>
-        {
-            ["frequency"] = BuzzerFrequency,
-            ["dutyCycle"] = BuzzerDutyCycle,
-            ["isIdleStateHugh"] = false,
-            ["channel"] = BuzzerChannel
-        }).ConfigureAwait(false);
+        var turnOnResult = await psuControl
+            .SetOutputAsync(enabled: true, channel: LedChannel)
+            .ConfigureAwait(false);
 
-        var turnOffResult = await InvokePsuAsync("SetOutput", new Dictionary<string, object>
-        {
-            ["enabled"] = false,
-            ["channel"] = LedChannel
-        }).ConfigureAwait(false);
+        var buzzerResult = await niDaqMxControl
+            .SetContiniousFrequencyAsync(
+                frequency: BuzzerFrequency,
+                dutyCycle: BuzzerDutyCycle,
+                isIdleStateHugh: false,
+                channel: BuzzerChannel)
+            .ConfigureAwait(false);
+
+        var turnOffResult = await psuControl
+            .SetOutputAsync(enabled: false, channel: LedChannel)
+            .ConfigureAwait(false);
 
         return new
         {
@@ -87,17 +88,20 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
         };
     }
 
-    private Task<object> InvokePsuAsync(string operation, Dictionary<string, object> parameters)
+    private IPsuControl ResolvePsuControl()
     {
-        return InvokeWrapperAsync("PSU", _psuWrapperName, operation, parameters);
+        _psuControl ??= ResolveWrapper<IPsuControl>("PSU", _psuWrapperName);
+        return _psuControl;
     }
 
-    private Task<object> InvokeNiDaqAsync(string operation, Dictionary<string, object> parameters)
+    private INiDaqMxControl ResolveNiDaqMxControl()
     {
-        return InvokeWrapperAsync("NiDaqMx", _niDaqMxWrapperName, operation, parameters);
+        _niDaqMxControl ??= ResolveWrapper<INiDaqMxControl>("NiDaqMx", _niDaqMxWrapperName);
+        return _niDaqMxControl;
     }
 
-    private Task<object> InvokeWrapperAsync(string deviceType, string wrapperName, string operation, Dictionary<string, object> parameters)
+    private TWrapper ResolveWrapper<TWrapper>(string deviceType, string wrapperName)
+        where TWrapper : class
     {
         if (!_driverRegistry.TryResolve(deviceType, wrapperName, out var wrapper) || wrapper == null)
         {
@@ -105,6 +109,12 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
                 $"Meditation wrapper dependency not found: deviceType='{deviceType}', wrapperName='{wrapperName}'.");
         }
 
-        return wrapper.ExecuteAsync(operation, parameters, CancellationToken.None);
+        if (wrapper is not TWrapper typedWrapper)
+        {
+            throw new InvalidOperationException(
+                $"Meditation wrapper dependency '{deviceType}::{wrapperName}' does not implement required contract '{typeof(TWrapper).Name}'.");
+        }
+
+        return typedWrapper;
     }
 }
