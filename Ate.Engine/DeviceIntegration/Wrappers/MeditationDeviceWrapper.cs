@@ -52,48 +52,65 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
     [DriverOperation]
     public object start_buzzer_sequence()
     {
-        var turnOnResult = InvokeWrapper("PSU", _psuWrapperName, "SetOutput", new Dictionary<string, object>
-        {
-            ["enabled"] = true,
-            ["channel"] = LedChannel
-        });
+        var psuWrapper = ResolveWrapper<PsuDeviceWrapper>("PSU", _psuWrapperName);
+        var niDaqMxWrapper = ResolveWrapper<NiDaqMxDeviceWrapper>("NiDaqMx", _niDaqMxWrapperName);
 
-        var buzzerResult = InvokeWrapper("NiDaqMx", _niDaqMxWrapperName, "SetContiniousFrequency", new Dictionary<string, object>
+        psuWrapper.Connect();
+        try
         {
-            ["frequency"] = BuzzerFrequency,
-            ["dutyCycle"] = BuzzerDutyCycle,
-            ["isIdleStateHugh"] = false,
-            ["channel"] = BuzzerChannel
-        });
+            var turnOnResult = psuWrapper.SetOutput(enabled: true, channel: LedChannel);
 
-        var turnOffResult = InvokeWrapper("PSU", _psuWrapperName, "SetOutput", new Dictionary<string, object>
-        {
-            ["enabled"] = false,
-            ["channel"] = LedChannel
-        });
+            niDaqMxWrapper.Connect();
+            object buzzerResult;
+            try
+            {
+                buzzerResult = niDaqMxWrapper.SetContiniousFrequency(
+                    frequency: BuzzerFrequency,
+                    dutyCycle: BuzzerDutyCycle,
+                    isIdleStateHugh: false,
+                    channel: BuzzerChannel);
+            }
+            finally
+            {
+                niDaqMxWrapper.Disconnect();
+            }
 
-        return new
+            var turnOffResult = psuWrapper.SetOutput(enabled: false, channel: LedChannel);
+
+            return new
+            {
+                Wrapper = DeviceType,
+                Action = "start_buzzer_sequence",
+                LedChannel,
+                BuzzerChannel,
+                BuzzerFrequency,
+                BuzzerDutyCycle,
+                TurnOnResult = turnOnResult,
+                BuzzerResult = buzzerResult,
+                TurnOffResult = turnOffResult
+            };
+        }
+        finally
         {
-            Wrapper = DeviceType,
-            Action = "start_buzzer_sequence",
-            LedChannel,
-            BuzzerChannel,
-            BuzzerFrequency,
-            BuzzerDutyCycle,
-            TurnOnResult = turnOnResult,
-            BuzzerResult = buzzerResult,
-            TurnOffResult = turnOffResult
-        };
+            psuWrapper.Disconnect();
+        }
     }
 
-    private object InvokeWrapper(string deviceType, string wrapperName, string operation, Dictionary<string, object> parameters)
+    private TWrapper ResolveWrapper<TWrapper>(string deviceType, string wrapperName)
+        where TWrapper : class
     {
         if (!_driverRegistry.TryResolve(deviceType, wrapperName, out var wrapper) || wrapper == null)
         {
             throw new InvalidOperationException(
                 $"Meditation wrapper dependency not found: deviceType='{deviceType}', wrapperName='{wrapperName}'.");
         }
-        
-        return wrapper.ExecuteAsync(operation, parameters, CancellationToken.None).GetAwaiter().GetResult();
+
+        if (wrapper is not TWrapper typedWrapper)
+        {
+            throw new InvalidOperationException(
+                $"Meditation wrapper dependency '{deviceType}::{wrapperName}' is not of expected type '{typeof(TWrapper).Name}'.");
+        }
+
+        return typedWrapper;
     }
 }
