@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Ate.Engine.Drivers;
@@ -10,12 +9,14 @@ namespace Ate.Engine.Wrappers;
 public sealed class MeditationDeviceWrapper : IDeviceDriver
 {
     private readonly DriverRegistry _driverRegistry;
-    private IDeviceDriver? _psuWrapper;
-    private IDeviceDriver? _niDaqMxWrapper;
+    private readonly string _psuWrapperName;
+    private readonly string _niDaqMxWrapperName;
 
     public MeditationDeviceWrapper(
         string driverId,
         DriverRegistry driverRegistry,
+        string psuWrapperName = "PSU",
+        string niDaqMxWrapperName = "NiDaqMx",
         int ledChannel = 1,
         int buzzerChannel = 1,
         decimal buzzerFrequency = 1000.0m,
@@ -23,6 +24,8 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
     {
         DriverId = driverId;
         _driverRegistry = driverRegistry;
+        _psuWrapperName = psuWrapperName;
+        _niDaqMxWrapperName = niDaqMxWrapperName;
         LedChannel = ledChannel;
         BuzzerChannel = buzzerChannel;
         BuzzerFrequency = buzzerFrequency;
@@ -86,34 +89,22 @@ public sealed class MeditationDeviceWrapper : IDeviceDriver
 
     private Task<object> InvokePsuAsync(string operation, Dictionary<string, object> parameters)
     {
-        _psuWrapper ??= ResolveFirstWrapper("PSU");
-        return _psuWrapper.ExecuteAsync(operation, parameters, CancellationToken.None);
+        return InvokeWrapperAsync("PSU", _psuWrapperName, operation, parameters);
     }
 
     private Task<object> InvokeNiDaqAsync(string operation, Dictionary<string, object> parameters)
     {
-        _niDaqMxWrapper ??= ResolveFirstWrapper("NiDaqMx");
-        return _niDaqMxWrapper.ExecuteAsync(operation, parameters, CancellationToken.None);
+        return InvokeWrapperAsync("NiDaqMx", _niDaqMxWrapperName, operation, parameters);
     }
 
-    private IDeviceDriver ResolveFirstWrapper(string deviceType)
+    private Task<object> InvokeWrapperAsync(string deviceType, string wrapperName, string operation, Dictionary<string, object> parameters)
     {
-        var firstMatchingKey = _driverRegistry.GetLoadedDrivers()
-            .FirstOrDefault(k => k.StartsWith(deviceType + "::", StringComparison.OrdinalIgnoreCase));
-
-        if (string.IsNullOrWhiteSpace(firstMatchingKey))
+        if (!_driverRegistry.TryResolve(deviceType, wrapperName, out var wrapper) || wrapper == null)
         {
             throw new InvalidOperationException(
-                $"Meditation wrapper dependency not found: no registered wrapper for deviceType='{deviceType}'.");
+                $"Meditation wrapper dependency not found: deviceType='{deviceType}', wrapperName='{wrapperName}'.");
         }
 
-        var split = firstMatchingKey.Split(new[] { "::" }, StringSplitOptions.None);
-        if (split.Length != 2 || !_driverRegistry.TryResolve(split[0], split[1], out var resolvedDriver) || resolvedDriver == null)
-        {
-            throw new InvalidOperationException(
-                $"Meditation wrapper dependency could not be resolved for key '{firstMatchingKey}'.");
-        }
-
-        return resolvedDriver;
+        return wrapper.ExecuteAsync(operation, parameters, CancellationToken.None);
     }
 }
