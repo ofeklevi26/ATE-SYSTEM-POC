@@ -7,7 +7,7 @@ using Ate.Engine.Hardware;
 
 namespace Ate.Engine.Wrappers;
 
-public sealed class NiDaqMxDeviceWrapper : IDeviceDriver, INiDaqMxControl
+public sealed class NiDaqMxDeviceWrapper : IDeviceDriver
 {
     private readonly INiDaqMxDriverAdapter _adapter;
 
@@ -58,22 +58,6 @@ public sealed class NiDaqMxDeviceWrapper : IDeviceDriver, INiDaqMxControl
             IsIdleStateHugh = isIdleStateHugh,
             Status = status
         };
-    }
-
-    public Task<object> SetContiniousFrequencyAsync(
-        decimal frequency,
-        decimal dutyCycle,
-        bool isIdleStateHugh = false,
-        int? channel = null,
-        CancellationToken token = default)
-    {
-        return ExecuteAsync("SetContiniousFrequency", new Dictionary<string, object>
-        {
-            ["frequency"] = frequency,
-            ["dutyCycle"] = dutyCycle,
-            ["isIdleStateHugh"] = isIdleStateHugh,
-            ["channel"] = channel ?? 1
-        }, token);
     }
 
     [DriverOperation]

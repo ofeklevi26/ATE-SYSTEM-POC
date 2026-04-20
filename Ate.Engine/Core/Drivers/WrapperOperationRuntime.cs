@@ -41,7 +41,7 @@ public static class WrapperOperationRuntime
         };
     }
 
-    public static async Task<object> InvokeAsync(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters, CancellationToken token)
+    public static Task<object> InvokeAsync(object wrapper, string operation, IReadOnlyDictionary<string, object> parameters, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
@@ -50,23 +50,7 @@ public static class WrapperOperationRuntime
         try
         {
             var result = method.Invoke(wrapper, args);
-            if (result is Task taskResult)
-            {
-                await taskResult.ConfigureAwait(false);
-                var taskType = taskResult.GetType();
-                if (taskType.IsGenericType)
-                {
-                    var resultProperty = taskType.GetProperty("Result");
-                    if (resultProperty != null)
-                    {
-                        return resultProperty.GetValue(taskResult) ?? string.Empty;
-                    }
-                }
-
-                return string.Empty;
-            }
-
-            return result ?? string.Empty;
+            return Task.FromResult(result ?? string.Empty);
         }
         catch (TargetInvocationException ex) when (ex.InnerException != null)
         {
